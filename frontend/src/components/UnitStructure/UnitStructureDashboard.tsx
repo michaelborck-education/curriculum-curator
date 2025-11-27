@@ -396,10 +396,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
                   onClick={async () => {
                     // TECH-DEBT: API response not used - could show report inline
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    await analyticsApi.getProgressReport(
-                      unitId,
-                      true
-                    );
+                    await analyticsApi.getProgressReport(unitId, true);
                     toast.success('Progress report generated - check console');
                   }}
                   className='p-4 border rounded-lg hover:bg-gray-50 text-left'
