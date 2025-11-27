@@ -9,8 +9,6 @@ import type {
 // Same origin - backend serves both API and frontend
 const API_BASE_URL = '/api';
 
-console.log('API Base URL:', API_BASE_URL);
-
 const api = axios.create({
   baseURL: API_BASE_URL,
 });
@@ -18,25 +16,22 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token');
-  console.log('Token from localStorage:', token ? 'Found' : 'Not found');
-  console.log('Request URL:', config.url);
-  
+
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('Added Authorization header');
   }
-  
+
   // Don't set Content-Type - let axios handle it based on the data type
   // axios will automatically set:
   // - application/json for objects
   // - application/x-www-form-urlencoded for URLSearchParams
   // - multipart/form-data for FormData
-  
+
   return config;
 });
 
 // Auth endpoints - now using simple JSON
-export const login = (email: string, password: string): Promise<ApiResponse> => 
+export const login = (email: string, password: string): Promise<ApiResponse> =>
   api.post('/auth/login', { email, password });
 
 export const register = (
@@ -65,8 +60,7 @@ export const enhanceContent = (
   api.post('/llm/enhance', { content, pedagogy_style: pedagogy });
 
 // Unit endpoints
-export const getUnits = (): Promise<ApiResponse<Unit[]>> =>
-  api.get('/units');
+export const getUnits = (): Promise<ApiResponse<Unit[]>> => api.get('/units');
 export const getUnit = (id: string): Promise<ApiResponse<Unit>> =>
   api.get(`/api/units/${id}`);
 

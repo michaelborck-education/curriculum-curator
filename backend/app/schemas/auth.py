@@ -165,7 +165,7 @@ class UserResponse(CamelModel):
 
 class LoginRequest(CamelModel):
     """Request schema for login"""
-    
+
     email: EmailStr
     password: str = Field(..., min_length=1, description="Password")
 

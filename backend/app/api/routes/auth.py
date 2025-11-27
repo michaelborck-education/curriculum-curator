@@ -93,7 +93,7 @@ async def register(
                 detail="An account with this email already exists",
             )
         # User exists but not verified - resend verification
-        success, verification_code = await auth_helpers.create_and_send_verification(
+        success, _verification_code = await auth_helpers.create_and_send_verification(
             db, existing_user
         )
         if success:
@@ -150,7 +150,7 @@ async def register(
                 user_email=new_user.email,
             )
         # All users (except first admin) must verify their email
-        success, verification_code = await auth_helpers.create_and_send_verification(
+        success, _verification_code = await auth_helpers.create_and_send_verification(
             db, new_user
         )
 
@@ -250,7 +250,7 @@ async def resend_verification(
             detail="This account is already verified",
         )
 
-    success, verification_code = await auth_helpers.create_and_send_verification(
+    _success, _verification_code = await auth_helpers.create_and_send_verification(
         db, user
     )
 
@@ -292,7 +292,7 @@ async def login(
         )
 
     # Check for suspicious activity
-    is_suspicious, suspicion_reason = SecurityManager.is_suspicious_activity(
+    _is_suspicious, _suspicion_reason = SecurityManager.is_suspicious_activity(
         db, email, client_ip, user_agent
     )
 
@@ -395,7 +395,7 @@ async def forgot_password(
     user = db.query(User).filter(User.email == forgot_request.email.lower()).first()
 
     if user and user.is_verified and user.is_active:
-        success, reset_code = await auth_helpers.create_and_send_password_reset(
+        success, _reset_code = await auth_helpers.create_and_send_password_reset(
             db, user
         )
 

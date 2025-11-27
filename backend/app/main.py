@@ -4,15 +4,14 @@ Curriculum Curator - Main FastAPI Application
 
 import logging
 from contextlib import asynccontextmanager
-import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 # CSRF removed - using JWT + CORS instead
@@ -130,8 +129,8 @@ app.add_middleware(
 try:
     from app.api.routes import auth
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-except ImportError as e:
-    logger.error(f"Failed to load auth routes: {e}")
+except ImportError:
+    logger.exception("Failed to load auth routes")
 
 try:
     from app.api.routes import admin
@@ -320,14 +319,14 @@ if not frontend_path.exists():
 if frontend_path.exists():
     # Mount static files at root, but only for non-API routes
     app.mount("/assets", StaticFiles(directory=str(frontend_path / "assets")), name="assets")
-    
+
     # Catch-all route for SPA - serves index.html for all non-API routes
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         # Don't serve index.html for API routes
         if full_path.startswith("api/"):
             return {"detail": "Not Found"}
-        
+
         # Serve index.html for all other routes (SPA routing)
         index_path = frontend_path / "index.html"
         if index_path.exists():

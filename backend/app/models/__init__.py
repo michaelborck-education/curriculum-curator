@@ -3,8 +3,6 @@ Database models for Curriculum Curator
 """
 
 # Common types
-from .common import GUID
-
 # Authentication models
 # Import models in dependency order
 # New unit structure models
@@ -20,6 +18,7 @@ from .assessment import (
 from .assessment_plan import AssessmentMode, AssessmentPlan, AssessmentType
 from .chat import ChatMessage, ChatRole, ChatSession, ContextScope
 from .chat_session import SessionStatus, WorkflowChatSession, WorkflowStage
+from .common import GUID
 from .content import Content, ContentCategory, ContentStatus, ContentType
 from .content_quarto_settings import ContentQuartoSettings
 from .content_version import ContentVersion

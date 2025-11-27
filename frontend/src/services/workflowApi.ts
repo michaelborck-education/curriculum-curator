@@ -175,15 +175,11 @@ class WorkflowAPI {
     formData.append('file', file);
     formData.append('extraction_method', extractionMethod);
 
-    const response = await api.post(
-      '/content/import/pdf/analyze',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+    const response = await api.post('/content/import/pdf/analyze', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 

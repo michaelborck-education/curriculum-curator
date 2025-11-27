@@ -55,7 +55,7 @@ const AdminDashboard = () => {
     if (activeTab === 'overview') {
       fetchDashboardStats();
     }
-  }, [activeTab]);
+  }, [activeTab]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Listen for navigation events from SystemSettings
@@ -82,16 +82,11 @@ const AdminDashboard = () => {
       setIsLoadingStats(true);
       setStatsError('');
 
-      console.log('[AdminDashboard] Fetching stats for user:', user);
-      console.log('[AdminDashboard] User role:', user?.role);
-      console.log('[AdminDashboard] User token:', localStorage.getItem('token')?.substring(0, 30) + '...');
-      
       const [statsResponse] = await Promise.all([
         api.get('/admin/users/stats'),
         // Could add more endpoints here for unit stats, etc.
       ]);
 
-      console.log('[AdminDashboard] Stats response:', statsResponse);
       setDashboardStats(statsResponse.data);
 
       // Generate some mock recent activity for now

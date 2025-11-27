@@ -97,7 +97,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
     try {
       // TECH-DEBT: API response not used for now - could be used for download
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _data = await analyticsApi.exportUnitData(unitId, format);
+      await analyticsApi.exportUnitData(unitId, format);
       toast.success(`Data exported as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Failed to export data');
@@ -396,7 +396,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
                   onClick={async () => {
                     // TECH-DEBT: API response not used - could show report inline
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const _data = await analyticsApi.getProgressReport(
+                    await analyticsApi.getProgressReport(
                       unitId,
                       true
                     );
@@ -419,7 +419,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
                   onClick={async () => {
                     // TECH-DEBT: API response not used - could show workload chart
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const _data = await analyticsApi.getWeeklyWorkload(unitId);
+                    await analyticsApi.getWeeklyWorkload(unitId);
                     toast.success(
                       'Workload analysis generated - check console'
                     );
@@ -441,7 +441,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
                   onClick={async () => {
                     // TECH-DEBT: API response not used - could show recommendations list
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const _data = await analyticsApi.getRecommendations(unitId);
+                    await analyticsApi.getRecommendations(unitId);
                     toast.success('Recommendations generated - check console');
                   }}
                   className='p-4 border rounded-lg hover:bg-gray-50 text-left'
@@ -461,7 +461,7 @@ export const UnitStructureDashboard: React.FC<UnitStructureDashboardProps> = ({
                   onClick={async () => {
                     // TECH-DEBT: API response not used - could show validation results
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const _data = await analyticsApi.validateUnit(unitId, true);
+                    await analyticsApi.validateUnit(unitId, true);
                     toast.success('Validation complete - check console');
                   }}
                   className='p-4 border rounded-lg hover:bg-gray-50 text-left'

@@ -47,9 +47,7 @@ class LLMApiService {
    * Get user's LLM configurations
    */
   async getUserConfigurations(): Promise<LLMConfig[]> {
-    const response = await api.get<LLMConfig[]>(
-      '/llm-config/configurations'
-    );
+    const response = await api.get<LLMConfig[]>('/llm-config/configurations');
     return response.data;
   }
 

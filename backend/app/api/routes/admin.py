@@ -33,21 +33,6 @@ from app.services.security_logger import SecurityLogger
 router = APIRouter()
 
 
-# REMOVED: Using get_current_admin_user from deps.py instead
-# def get_current_admin_user(
-#     current_user: User = Depends(deps.get_current_active_user),
-# ) -> User:
-#     """Dependency to ensure current user is an admin"""
-#     print(f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'", flush=True)
-#     
-#     if current_user.role != UserRole.ADMIN.value:
-#         print(f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'", flush=True)
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
-#         )
-#     return current_user
-
-
 @router.get("/users", response_model=UserListResponse)
 # @limiter.limit(RateLimits.DEFAULT)
 async def list_users(
@@ -256,7 +241,6 @@ async def get_user_statistics(
     admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Get user statistics"""
-    print(f"[ROUTE] get_user_statistics called, admin_user: {admin_user.email}", flush=True)
     total_users = db.query(User).count()
     verified_users = db.query(User).filter(User.is_verified).count()
     active_users = db.query(User).filter(User.is_active).count()

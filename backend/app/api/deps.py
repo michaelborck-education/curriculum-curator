@@ -7,10 +7,9 @@ from collections.abc import Generator
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from app.core.config import settings
 from app.core.database import SessionLocal
@@ -37,10 +36,10 @@ def get_current_user(
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
     """Get current user from JWT token."""
-    logger.info(f"[AUTH] Starting authentication")
+    logger.info("[AUTH] Starting authentication")
     token = credentials.credentials
     logger.info(f"[AUTH] Got token: {token[:20]}...")
-    
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -56,9 +55,9 @@ def get_current_user(
         logger.info(f"[AUTH] Decoded user_id: {user_id}")
         if user_id is None:
             raise credentials_exception
-    except JWTError as e:
+    except JWTError:
         # JWT decode error - invalid token
-        logger.error(f"[AUTH] JWT decode failed: {e}")
+        logger.exception("[AUTH] JWT decode failed")
         raise credentials_exception from None
 
     # Fetch the user from the database
@@ -66,7 +65,7 @@ def get_current_user(
     if user is None:
         logger.error(f"[AUTH] User not found for id: {user_id}")
         raise credentials_exception
-    
+
     logger.info(f"[AUTH] Found user: {user.email}, role: {user.role}")
     return user
 
@@ -85,7 +84,7 @@ def get_current_admin_user(
 ) -> User:
     """Get current user and verify admin role."""
     logger.info(f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'")
-    
+
     # Re-enable admin check
     if current_user.role != UserRole.ADMIN.value:
         logger.error(f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'")

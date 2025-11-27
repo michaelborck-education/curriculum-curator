@@ -5,42 +5,41 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
-    host: true,
+    port: parseInt(process.env.VITE_PORT || '5173'),
+    host: process.env.VITE_HOST || true,
     strictPort: false,
     open: false,
-    hmr: {
-      clientPort: 8081
-    },
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'curriculumcurator.serveur.au',
-      '.serveur.au'  // Allow any subdomain of serveur.au
-    ],
+    hmr: process.env.VITE_HMR_HOST
+      ? {
+          host: process.env.VITE_HMR_HOST,
+          port: parseInt(process.env.VITE_HMR_PORT || '443'),
+          protocol: process.env.VITE_HMR_PROTOCOL || 'wss',
+        }
+      : undefined,
+    allowedHosts: (process.env.VITE_ALLOWED_HOSTS || 'localhost,127.0.0.1').split(','),
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false
       },
       '/auth': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false
       },
       '/health': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false
       },
       '/docs': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false
       },
       '/openapi.json': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         secure: false
       }
@@ -49,7 +48,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
+    setupFiles: './src/test/setup.ts',
     css: true,
     coverage: {
       provider: 'v8',

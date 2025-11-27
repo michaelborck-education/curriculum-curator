@@ -427,7 +427,7 @@ class URLVerifier(ValidatorPlugin):
             results = await self._verify_urls(urls)
 
             # Generate report
-            issues, suggestions = self._generate_report(results)
+            _issues, suggestions = self._generate_report(results)
 
             # Calculate statistics
             total_urls = len(results)

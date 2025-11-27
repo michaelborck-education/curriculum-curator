@@ -130,7 +130,7 @@ class AuthHelpers:
                 AlternativeVerification,
             )
 
-            alt_valid, alt_message = AlternativeVerification.verify_alternative_code(
+            alt_valid, _alt_message = AlternativeVerification.verify_alternative_code(
                 email, code
             )
 
