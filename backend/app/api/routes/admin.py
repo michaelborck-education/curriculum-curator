@@ -33,15 +33,19 @@ from app.services.security_logger import SecurityLogger
 router = APIRouter()
 
 
-def get_current_admin_user(
-    current_user: User = Depends(deps.get_current_active_user),
-) -> User:
-    """Dependency to ensure current user is an admin"""
-    if current_user.role != UserRole.ADMIN.value:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
-        )
-    return current_user
+# REMOVED: Using get_current_admin_user from deps.py instead
+# def get_current_admin_user(
+#     current_user: User = Depends(deps.get_current_active_user),
+# ) -> User:
+#     """Dependency to ensure current user is an admin"""
+#     print(f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'", flush=True)
+#     
+#     if current_user.role != UserRole.ADMIN.value:
+#         print(f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'", flush=True)
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+#         )
+#     return current_user
 
 
 @router.get("/users", response_model=UserListResponse)
@@ -54,7 +58,7 @@ async def list_users(
     is_verified: bool | None = None,
     is_active: bool | None = None,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """List all users with optional filtering and pagination"""
     query = db.query(User)
@@ -103,7 +107,7 @@ async def list_users(
 async def toggle_user_status(
     user_id: str,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Toggle user active status"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -141,7 +145,7 @@ async def toggle_user_status(
 async def verify_user(
     user_id: str,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Manually verify a user (admin only)"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -179,7 +183,7 @@ async def delete_user(
     user_id: str,
     permanent: bool = Query(False, description="Permanently delete user from database"),
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Delete a user (soft delete by default, or permanent delete if specified)"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -249,9 +253,10 @@ async def delete_user(
 # @limiter.limit(RateLimits.DEFAULT)
 async def get_user_statistics(
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Get user statistics"""
+    print(f"[ROUTE] get_user_statistics called, admin_user: {admin_user.email}", flush=True)
     total_users = db.query(User).count()
     verified_users = db.query(User).filter(User.is_verified).count()
     active_users = db.query(User).filter(User.is_active).count()
@@ -283,7 +288,7 @@ async def get_user_statistics(
 # @limiter.limit(RateLimits.DEFAULT)
 async def list_email_whitelist(
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """List all email whitelist patterns"""
     patterns = db.query(EmailWhitelist).all()
@@ -305,7 +310,7 @@ async def list_email_whitelist(
 async def create_whitelist_pattern(
     pattern_data: EmailWhitelistCreate,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Create a new email whitelist pattern"""
     # Check if pattern already exists
@@ -353,7 +358,7 @@ async def update_whitelist_pattern(
     pattern_id: str,
     pattern_data: EmailWhitelistUpdate,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Update an email whitelist pattern"""
     pattern = db.query(EmailWhitelist).filter(EmailWhitelist.id == pattern_id).first()
@@ -396,7 +401,7 @@ async def update_whitelist_pattern(
 async def delete_whitelist_pattern(
     pattern_id: str,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Delete an email whitelist pattern"""
     pattern = db.query(EmailWhitelist).filter(EmailWhitelist.id == pattern_id).first()
@@ -425,7 +430,7 @@ async def delete_whitelist_pattern(
 # @limiter.limit(RateLimits.DEFAULT)
 async def get_system_settings(
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Get system settings"""
     # TODO: Implement actual system settings retrieval
@@ -448,7 +453,7 @@ async def get_system_settings(
 async def update_system_settings(
     settings_data: SystemSettingsUpdate,
     db: Session = Depends(deps.get_db),
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(deps.get_current_admin_user),
 ):
     """Update system settings"""
     # TODO: Implement actual system settings update

@@ -163,6 +163,13 @@ class UserResponse(CamelModel):
         from_attributes = True
 
 
+class LoginRequest(CamelModel):
+    """Request schema for login"""
+    
+    email: EmailStr
+    password: str = Field(..., min_length=1, description="Password")
+
+
 class LoginResponse(CamelModel):
     """Response schema for login"""
 

@@ -18,8 +18,12 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token');
+  console.log('Token from localStorage:', token ? 'Found' : 'Not found');
+  console.log('Request URL:', config.url);
+  
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('Added Authorization header');
   }
   
   // Don't set Content-Type - let axios handle it based on the data type
@@ -31,22 +35,9 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Auth endpoints - Note: backend expects 'username' for login (not 'email')
-export const login = (email: string, password: string): Promise<ApiResponse> => {
-  // Create form data
-  const params = new URLSearchParams();
-  params.append('username', email);
-  params.append('password', password);
-  
-  console.log('Login params:', params.toString());
-  
-  // Send with explicit headers to ensure they're not overridden
-  return api.post('/auth/login', params.toString(), {
-    headers: { 
-      'Content-Type': 'application/x-www-form-urlencoded'
-    }
-  });
-};
+// Auth endpoints - now using simple JSON
+export const login = (email: string, password: string): Promise<ApiResponse> => 
+  api.post('/auth/login', { email, password });
 
 export const register = (
   email: string,

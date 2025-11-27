@@ -82,11 +82,16 @@ const AdminDashboard = () => {
       setIsLoadingStats(true);
       setStatsError('');
 
+      console.log('[AdminDashboard] Fetching stats for user:', user);
+      console.log('[AdminDashboard] User role:', user?.role);
+      console.log('[AdminDashboard] User token:', localStorage.getItem('token')?.substring(0, 30) + '...');
+      
       const [statsResponse] = await Promise.all([
         api.get('/admin/users/stats'),
         // Could add more endpoints here for unit stats, etc.
       ]);
 
+      console.log('[AdminDashboard] Stats response:', statsResponse);
       setDashboardStats(statsResponse.data);
 
       // Generate some mock recent activity for now

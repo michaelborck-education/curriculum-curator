@@ -49,8 +49,12 @@ RUN npm install && npm run build
 
 WORKDIR /app/backend
 
+# Disable Python bytecode caching to ensure changes are picked up
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 # Expose backend port ONLY (it serves everything)
 EXPOSE 8000
 
-# Run backend which serves both API and built frontend
-CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run backend with reload to pick up changes
+CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -27,15 +27,10 @@ const Login = ({ onBackToLanding }: LoginProps) => {
     setIsLoading(true);
 
     try {
-      // OAuth2PasswordRequestForm expects form data
-      const formData = new URLSearchParams();
-      formData.append('username', email);
-      formData.append('password', password);
-
-      const response = await api.post('/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      // Send as JSON - simple and clean
+      const response = await api.post('/auth/login', {
+        email,
+        password,
       });
 
       if (response.status === 200) {

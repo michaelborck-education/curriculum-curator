@@ -6,7 +6,6 @@ import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api import deps
@@ -22,6 +21,7 @@ from app.schemas import (
     EmailVerificationResponse,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    LoginRequest,
     LoginResponse,
     ResendVerificationRequest,
     ResendVerificationResponse,
@@ -263,18 +263,18 @@ async def resend_verification(
 @limiter.limit(RateLimits.LOGIN)
 async def login(
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    login_data: LoginRequest,
     db: Session = Depends(deps.get_db),
 ):
-    """OAuth2 compatible token login"""
+    """Simple JSON-based login endpoint"""
 
     # NO CSRF on login endpoint - protected by CORS + rate limiting
-    # Removing CSRF from login to fix authentication issues
+    # Using simple JSON instead of OAuth2PasswordRequestForm for simplicity
 
     # Get client information for security tracking
     client_ip = SecurityManager.get_client_ip(request)
     user_agent = SecurityManager.get_user_agent(request)
-    email = form_data.username.lower().strip()
+    email = login_data.email.lower().strip()
 
     # Check for account lockout or IP rate limiting
     is_locked, lockout_reason, minutes_remaining = (
@@ -298,7 +298,7 @@ async def login(
 
     user = db.query(User).filter(User.email == email).first()
     login_success = user and security.verify_password(
-        form_data.password, user.password_hash
+        login_data.password, user.password_hash
     )
 
     # Record login attempt (success or failure)

@@ -2,20 +2,25 @@
 Database and authentication dependencies for FastAPI routes
 """
 
+import logging
 from collections.abc import Generator
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import User, UserRole
 
-# OAuth2 scheme - using actual route prefix /api/auth/login instead of /api/v1/auth/login
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# Set up logger
+logger = logging.getLogger(__name__)
+
+# Use HTTPBearer instead of OAuth2PasswordBearer - simpler, no OAuth2 complexity
+security = HTTPBearer()
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -28,10 +33,14 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
     """Get current user from JWT token."""
+    logger.info(f"[AUTH] Starting authentication")
+    token = credentials.credentials
+    logger.info(f"[AUTH] Got token: {token[:20]}...")
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -40,22 +49,25 @@ def get_current_user(
 
     try:
         # Decode JWT token - no IP verification for now
-        # IP verification was causing issues with local testing
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: str | None = payload.get("sub")
+        logger.info(f"[AUTH] Decoded user_id: {user_id}")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
         # JWT decode error - invalid token
+        logger.error(f"[AUTH] JWT decode failed: {e}")
         raise credentials_exception from None
 
     # Fetch the user from the database
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        logger.error(f"[AUTH] User not found for id: {user_id}")
         raise credentials_exception
-
+    
+    logger.info(f"[AUTH] Found user: {user.email}, role: {user.role}")
     return user
 
 
@@ -72,10 +84,15 @@ def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     """Get current user and verify admin role."""
+    logger.info(f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'")
+    
+    # Re-enable admin check
     if current_user.role != UserRole.ADMIN.value:
+        logger.error(f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
+    logger.info(f"[ADMIN ALLOWED] User {current_user.email} has admin privileges")
     return current_user
 
 
