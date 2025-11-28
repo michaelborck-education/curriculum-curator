@@ -327,14 +327,24 @@ VITE_ENABLE_AI_FEATURES=true
 
 ## 🐳 Docker Deployment
 
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
+### Quick Setup
 
-# Or build individually
-docker build -t curriculum-curator-backend ./backend
-docker build -t curriculum-curator-frontend ./frontend
+```bash
+# 1. Run setup script to create data directories and configure environment
+./setup.sh
+
+# 2. Build and run with Docker Compose
+docker compose up --build -d
+
+# 3. Check logs
+docker compose logs -f
 ```
+
+The app will be available at http://localhost:8081
+
+### Production Deployment
+
+For production deployment on a VPS with Caddy reverse proxy, see [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
 ## 🤝 Contributing
 

@@ -39,6 +39,9 @@ tmp/
 *.sqlite
 *.sqlite3
 
+# Data directories (persistent volumes)
+data/
+
 # Backup files
 *.bak
 *.backup
