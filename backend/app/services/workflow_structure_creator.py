@@ -7,12 +7,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.assessments import Assessment
-from app.models.learning_outcomes import UnitLearningOutcome
+from app.models.assessment import Assessment
+from app.models.chat_session import WorkflowChatSession
+from app.models.learning_outcome import UnitLearningOutcome
 from app.models.unit import Unit
 from app.models.unit_outline import UnitOutline
-from app.models.weekly_materials import WeeklyMaterial
-from app.models.workflow import WorkflowChatSession
+from app.models.weekly_material import WeeklyMaterial
 
 
 class WorkflowStructureCreator:
