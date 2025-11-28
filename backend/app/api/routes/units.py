@@ -107,7 +107,7 @@ def get_unit(
     return unit
 
 
-@router.post("/", response_model=UnitResponse)
+@router.post("/create", response_model=UnitResponse)
 async def create_unit(
     unit_data: UnitCreate,
     current_user: User = Depends(deps.get_current_user),

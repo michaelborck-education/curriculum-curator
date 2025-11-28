@@ -68,7 +68,7 @@ export const getUnit = (id: string): Promise<ApiResponse<Unit>> =>
 export const getCourses = getUnits;
 export const getCourse = getUnit;
 export const createUnit = (data: Partial<Unit>): Promise<ApiResponse<Unit>> =>
-  api.post('/units', data);
+  api.post('/units/create', data);
 export const updateUnit = (
   id: string,
   data: Partial<Unit>
