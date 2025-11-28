@@ -14,7 +14,11 @@ import {
   Clock,
   Target,
 } from 'lucide-react';
-import api from '../../services/api';
+import api, {
+  createUnit as createUnitApi,
+  getUnits as getUnitsApi,
+  deleteUnit as deleteUnitApi,
+} from '../../services/api';
 
 // Import Unit type from global types
 import type { Unit } from '../../types';
@@ -51,11 +55,9 @@ const UnitManager = () => {
   const fetchUnits = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/units');
+      const response = await getUnitsApi();
       // The backend returns an array directly, not wrapped in an object
-      setUnits(
-        Array.isArray(response.data) ? response.data : response.data.units || []
-      );
+      setUnits(Array.isArray(response.data) ? response.data : []);
     } catch {
       // Handle error silently
     } finally {
@@ -111,7 +113,7 @@ const UnitManager = () => {
         status: 'draft',
       };
 
-      const response = await api.post('/units/create', unitData);
+      const response = await createUnitApi(unitData);
 
       // Add the new unit to the list
       setUnits([...units, response.data]);
@@ -208,7 +210,7 @@ const UnitManager = () => {
   const deleteUnit = async (unitId: string) => {
     if (window.confirm('Are you sure you want to delete this unit?')) {
       try {
-        await api.delete(`/api/units/${unitId}`);
+        await deleteUnitApi(unitId);
         setUnits(units.filter(c => c.id !== unitId));
       } catch {
         // Handle deletion error silently

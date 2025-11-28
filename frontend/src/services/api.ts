@@ -74,6 +74,9 @@ export const updateUnit = (
   data: Partial<Unit>
 ): Promise<ApiResponse<Unit>> => api.put(`/units/${id}`, data);
 
+export const deleteUnit = (id: string): Promise<ApiResponse> =>
+  api.delete(`/units/${id}`);
+
 // Content management
 export const createContent = (data: {
   title: string;
