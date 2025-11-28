@@ -154,6 +154,10 @@ try:
     from app.api.routes import units
     app.include_router(units.router, prefix="/api/units", tags=["units"])
     logger.info("✅ Units routes loaded successfully")
+    # Log all registered routes for debugging
+    for route in units.router.routes:
+        if hasattr(route, 'methods'):
+            logger.info(f"  → {route.path} [{', '.join(route.methods)}]")
 except ImportError:
     logger.exception("❌ Failed to load units routes")
 

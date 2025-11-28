@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/test")
+async def test_units_router():
+    """Test endpoint to verify router is working"""
+    return {"message": "Units router is working!", "status": "OK"}
+
+
 @router.get("/", response_model=list[UnitResponse])
 def get_units(
     skip: int = Query(0, ge=0),
