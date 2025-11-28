@@ -11,6 +11,8 @@ import {
   Target,
   LucideIcon,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { getUnit } from '../../services/api';
 import type { Unit, UnitModule, ContentType } from '../../types/index';
 
 const UnitView = () => {
@@ -20,44 +22,17 @@ const UnitView = () => {
 
   useEffect(() => {
     const fetchCourse = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Mock course data for now
-        setUnit({
-          id: id || '1',
-          title: `Unit ${id}`,
-          description:
-            'A comprehensive course created with pedagogically-aware content generation.',
-          code: `UNIT${id}`,
-          year: 2024,
-          semester: 'semester_1',
-          status: 'active',
-          pedagogyType: 'inquiry-based',
-          difficultyLevel: 'intermediate',
-          durationWeeks: 8,
-          creditPoints: 25,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          ownerId: '1',
-          createdById: '1',
-          modules: [
-            { id: 1, title: 'Introduction', type: 'lecture', completed: true },
-            {
-              id: 2,
-              title: 'Core Concepts',
-              type: 'assignment',
-              completed: true,
-            },
-            {
-              id: 3,
-              title: 'Practical Applications',
-              type: 'project',
-              completed: false,
-            },
-            { id: 4, title: 'Assessment', type: 'quiz', completed: false },
-          ],
-        });
-      } catch (error) {
+        const response = await getUnit(id);
+        setUnit(response.data);
+      } catch (error: any) {
         console.error('Failed to fetch unit:', error);
+        toast.error(error.response?.data?.message || 'Failed to load unit');
       } finally {
         setLoading(false);
       }

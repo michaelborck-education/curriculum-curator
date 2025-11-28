@@ -62,7 +62,7 @@ export const enhanceContent = (
 // Unit endpoints
 export const getUnits = (): Promise<ApiResponse<Unit[]>> => api.get('/units');
 export const getUnit = (id: string): Promise<ApiResponse<Unit>> =>
-  api.get(`/api/units/${id}`);
+  api.get(`/units/${id}`);
 
 // Backwards compatibility aliases
 export const getCourses = getUnits;
@@ -72,7 +72,29 @@ export const createUnit = (data: Partial<Unit>): Promise<ApiResponse<Unit>> =>
 export const updateUnit = (
   id: string,
   data: Partial<Unit>
-): Promise<ApiResponse<Unit>> => api.put(`/api/units/${id}`, data);
+): Promise<ApiResponse<Unit>> => api.put(`/units/${id}`, data);
+
+// Content management
+export const createContent = (data: {
+  title: string;
+  type: string;
+  unit_id: string;
+  content_markdown?: string;
+  summary?: string;
+  difficulty_level?: string;
+  estimated_duration_minutes?: number;
+}): Promise<ApiResponse> => api.post('/content', data);
+
+export const updateContent = (
+  content_id: string,
+  data: {
+    title?: string;
+    content_markdown?: string;
+    summary?: string;
+    difficulty_level?: string;
+    estimated_duration_minutes?: number;
+  }
+): Promise<ApiResponse> => api.put(`/content/${content_id}`, data);
 
 // File upload
 export const uploadFile = (file: File): Promise<ApiResponse> => {
