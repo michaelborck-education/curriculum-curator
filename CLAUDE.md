@@ -258,6 +258,13 @@ uv tool install basedpyright                     # basedpyright
 
 ## Database Notes
 
+**IMPORTANT: No Production Users - Clean Slate Policy**
+- The production VPS currently has NO real users (only test accounts)
+- Safe to drop/recreate database, modify schemas, break backwards compatibility
+- NO need for migrations, deprecation warnings, or backwards-compatible changes
+- When making breaking changes: just reset the database and start clean
+- Reset command: `rm backend/curriculum_curator.db && python backend/init_db.py`
+
 SQLAlchemy models are not implemented yet. When implementing:
 - Define models in `backend/app/models/`
 - Create Alembic migrations: `alembic revision --autogenerate -m "description"`
