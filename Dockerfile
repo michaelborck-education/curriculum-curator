@@ -1,13 +1,14 @@
 # One Dockerfile for everything - build frontend, serve with backend
 FROM python:3.11-slim
 
-# Install Node.js 20, curl, and other dependencies
+# Install Node.js 20, curl, gosu, and other dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     gcc \
     g++ \
     lsof \
     procps \
+    gosu \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -57,11 +58,15 @@ RUN rm -rf node_modules package-lock.json dist .vite && \
 
 WORKDIR /app/backend
 
+# Copy and setup entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Change ownership of app directory to non-root user
 RUN chown -R appuser:appuser /app
 
-# Switch to non-root user
-USER appuser
+# NOTE: We don't switch to appuser here - the entrypoint script will do it
+# This allows the entrypoint to fix permissions first (needs root)
 
 # Disable Python bytecode caching to ensure changes are picked up
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -69,6 +74,9 @@ ENV PYTHONUNBUFFERED=1
 
 # Expose backend port ONLY (it serves everything)
 EXPOSE 8000
+
+# Use entrypoint script to fix permissions then drop to appuser
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run backend with reload to pick up changes
 CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

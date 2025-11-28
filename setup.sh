@@ -13,7 +13,16 @@ echo ""
 # Create data directories
 echo "📁 Creating data directories..."
 mkdir -p data/{db,uploads,logs,content_repo}
-echo "✓ Created data/{db,uploads,logs,content_repo}"
+
+# Set permissions for Docker container user (UID 1000)
+# Try to set ownership, but don't fail if user doesn't have permission
+if chown -R 1000:1000 data/ 2>/dev/null; then
+    echo "✓ Created data/{db,uploads,logs,content_repo} with correct permissions"
+else
+    echo "✓ Created data/{db,uploads,logs,content_repo}"
+    echo "⚠️  Could not set ownership to UID 1000 - you may need to run:"
+    echo "   sudo chown -R 1000:1000 data/"
+fi
 echo ""
 
 # Create backend .env if it doesn't exist
