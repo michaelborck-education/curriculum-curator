@@ -1,0 +1,35 @@
+# Ignore frontend build artifacts and cache
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/package-lock.json
+
+# Ignore backend artifacts
+backend/.venv
+backend/__pycache__
+backend/**/__pycache__
+backend/**/*.pyc
+backend/.pytest_cache
+backend/.ruff_cache
+backend/.mypy_cache
+
+# Ignore data directories
+data/
+backend/data/
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore env files (use volume mount instead)
+backend/.env
