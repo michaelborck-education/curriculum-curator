@@ -29,6 +29,13 @@ async def test_units_router():
     return {"message": "Units router is working!", "status": "OK"}
 
 
+@router.post("/test-post")
+async def test_post_endpoint():
+    """Dead simple POST test - no auth, no validation, nothing"""
+    logger.info("[TEST-POST] This endpoint was called!")
+    return {"message": "POST works!", "status": "OK"}
+
+
 @router.get("/", response_model=list[UnitResponse])
 def get_units(
     skip: int = Query(0, ge=0),
