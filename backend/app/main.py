@@ -187,6 +187,10 @@ try:
     for route in units.router.routes:
         if hasattr(route, 'methods'):
             logger.info(f"  → {route.path} [{', '.join(route.methods)}]")
+            # Log the actual endpoint function for POST routes
+            if 'POST' in route.methods:
+                logger.info(f"      Endpoint: {route.endpoint.__name__}")
+                logger.info(f"      Dependencies: {len(route.dependant.dependencies)} items")
 except ImportError:
     logger.exception("❌ Failed to load units routes")
 
