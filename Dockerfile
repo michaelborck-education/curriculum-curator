@@ -46,7 +46,8 @@ WORKDIR /app
 # Build the frontend
 WORKDIR /app/frontend
 # Workaround for npm bug with optional dependencies (https://github.com/npm/cli/issues/4828)
-RUN rm -rf node_modules package-lock.json && \
+# Also clear Vite cache to ensure fresh build
+RUN rm -rf node_modules package-lock.json dist .vite && \
     npm install --force && \
     npm run build
 
