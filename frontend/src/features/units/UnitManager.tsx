@@ -111,7 +111,7 @@ const UnitManager = () => {
         status: 'draft',
       };
 
-      const response = await api.post('/units', unitData);
+      const response = await api.post('/units/create', unitData);
 
       // Add the new unit to the list
       setUnits([...units, response.data]);
