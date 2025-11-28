@@ -2,6 +2,8 @@
 API routes for unit CRUD operations
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -15,6 +17,8 @@ from app.schemas.unit import (
     UnitResponse,
     UnitUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -91,7 +95,7 @@ def get_unit(
 
 
 @router.post("/", response_model=UnitResponse)
-def create_unit(
+async def create_unit(
     unit_data: UnitCreate,
     current_user: User = Depends(deps.get_current_user),
     db: Session = Depends(get_db),
@@ -99,6 +103,9 @@ def create_unit(
     """
     Create a new unit
     """
+    logger.info(f"[CREATE_UNIT] Received request from user {current_user.email}")
+    logger.info(f"[CREATE_UNIT] Unit data: {unit_data.model_dump()}")
+
     # Check if unit with same code, year, and semester already exists for this user
     existing_unit = (
         db.query(Unit)

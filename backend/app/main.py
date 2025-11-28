@@ -153,8 +153,9 @@ except ImportError as e:
 try:
     from app.api.routes import units
     app.include_router(units.router, prefix="/api/units", tags=["units"])
-except ImportError as e:
-    logger.warning(f"Failed to load units routes: {e}")
+    logger.info("✅ Units routes loaded successfully")
+except ImportError:
+    logger.exception("❌ Failed to load units routes")
 
 try:
     from app.api.routes import unit_structure
