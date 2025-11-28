@@ -92,6 +92,22 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+# Add middleware to debug all requests to /api/units
+@app.middleware("http")
+async def debug_units_requests(request: Request, call_next):
+    if "/units" in request.url.path:
+        logger.info(f"[MIDDLEWARE] {request.method} {request.url.path}")
+        logger.info(f"[MIDDLEWARE] Headers: {dict(request.headers)}")
+        logger.info(f"[MIDDLEWARE] Content-Type: {request.headers.get('content-type')}")
+
+    response = await call_next(request)
+
+    if "/units" in request.url.path:
+        logger.info(f"[MIDDLEWARE] Response status: {response.status_code}")
+
+    return response
+
+
 # Security middleware (order matters - add from outermost to innermost)
 # 1. Trusted host validation (first line of defense)
 app.add_middleware(

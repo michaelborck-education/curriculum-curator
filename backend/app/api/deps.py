@@ -36,7 +36,9 @@ def get_current_user(
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
     """Get current user from JWT token."""
-    logger.info("[AUTH] Starting authentication")
+    logger.info("[AUTH] ===== STARTING AUTHENTICATION =====")
+    logger.info(f"[AUTH] Credentials type: {type(credentials)}")
+    logger.info(f"[AUTH] Credentials: {credentials}")
     token = credentials.credentials
     logger.info(f"[AUTH] Got token: {token[:20]}...")
 
