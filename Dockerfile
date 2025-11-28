@@ -12,7 +12,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for faster Python package management
+# Create non-root user
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/bash appuser
+
+# Install uv for faster Python package management as root
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
@@ -52,6 +56,12 @@ RUN rm -rf node_modules package-lock.json dist .vite && \
     npm run build
 
 WORKDIR /app/backend
+
+# Change ownership of app directory to non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Disable Python bytecode caching to ensure changes are picked up
 ENV PYTHONDONTWRITEBYTECODE=1
