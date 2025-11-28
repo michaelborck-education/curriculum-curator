@@ -45,7 +45,10 @@ WORKDIR /app
 
 # Build the frontend
 WORKDIR /app/frontend
-RUN npm install && npm run build
+# Workaround for npm bug with optional dependencies (https://github.com/npm/cli/issues/4828)
+RUN rm -rf node_modules package-lock.json && \
+    npm install --force && \
+    npm run build
 
 WORKDIR /app/backend
 
