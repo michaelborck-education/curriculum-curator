@@ -4,7 +4,7 @@ API routes for unit CRUD operations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -102,15 +102,32 @@ def get_unit(
 
 @router.post("/", response_model=UnitResponse)
 async def create_unit(
-    unit_data: UnitCreate,
+    request: Request,
     current_user: User = Depends(deps.get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Create a new unit
+    Create a new unit - with debugging for request validation
     """
-    logger.info(f"[CREATE_UNIT] Received request from user {current_user.email}")
-    logger.info(f"[CREATE_UNIT] Unit data: {unit_data.model_dump()}")
+    logger.info(f"[CREATE_UNIT] === ROUTE HANDLER CALLED ===")
+    logger.info(f"[CREATE_UNIT] User: {current_user.email}")
+
+    # Get raw request body
+    try:
+        raw_body = await request.json()
+        logger.info(f"[CREATE_UNIT] Raw JSON received: {raw_body}")
+    except Exception as e:
+        logger.error(f"[CREATE_UNIT] Failed to parse JSON: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+
+    # Try to validate with Pydantic
+    try:
+        unit_data = UnitCreate(**raw_body)
+        logger.info(f"[CREATE_UNIT] Pydantic validation SUCCESS!")
+        logger.info(f"[CREATE_UNIT] Validated data: {unit_data.model_dump()}")
+    except Exception as e:
+        logger.error(f"[CREATE_UNIT] Pydantic validation FAILED: {e}")
+        raise HTTPException(status_code=422, detail=f"Validation error: {str(e)}")
 
     # Check if unit with same code, year, and semester already exists for this user
     existing_unit = (
