@@ -69,23 +69,49 @@ npm run test:coverage    # Run tests with coverage report
 npm run test:ui          # Run tests with UI interface
 ```
 
+## Terminology - Australian University Context
+
+**IMPORTANT: This application uses Australian university terminology**
+
+### Core Concepts
+- **Unit** = Individual subject/course (e.g., "Programming 101", "Web Development")
+  - A unit runs for one semester (12-13 weeks)
+  - Students enroll in multiple units per semester
+  - Each unit has credit points (typically 6-25 credits)
+
+- **Course** = Degree program (e.g., "Bachelor of Computer Science")
+  - NOT what this app manages
+  - A course consists of many units
+
+### USA vs Australian Terminology
+- 🇺🇸 USA: Program → Course → Class
+- 🇦🇺 AUS: Course → Unit → Class
+
+### Legacy Code - DEPRECATED
+- `/api/courses` endpoints exist for backwards compatibility ONLY
+- They are aliases that create `Unit` objects underneath
+- **TODO**: Remove these endpoints (safe since no production users)
+- Use `/api/units` endpoints instead
+
 ## Architecture Overview
 
 **Full-stack application**: FastAPI backend + React frontend with clear API boundaries.
+
+**Scope**: This app manages individual **Units** (subjects), NOT degree programs (Courses).
 
 ### Backend Architecture (`/backend/app/`)
 - **FastAPI REST API** with JWT authentication
 - **Modern Python tooling**: uv (package manager), ruff (linting/formatting), basedpyright (type checking), pytest (testing)
 - **Plugin architecture** for content validation/remediation (`plugins/`)
 - **LLM service integration** supporting OpenAI, Anthropic with streaming (`services/llm_service.py`)
-- **Modular API routes** by domain: auth, courses, content, llm (`api/routes/`)
+- **Modular API routes** by domain: auth, units, content, llm (`api/routes/`)
 - **SQLAlchemy + Alembic** ready (database models not yet implemented)
 - **pyproject.toml** for modern dependency management
 
 ### Frontend Architecture (`/src/`)
 - **TypeScript-first**: ALL components must be `.tsx` files, no `.jsx` allowed
 - **Modern React tooling**: ESLint (linting), Prettier (formatting), Vitest (testing)
-- **Feature-based structure**: `features/{auth,content,courses}/`
+- **Feature-based structure**: `features/{auth,content,units}/`
 - **Shared components**: `components/{Editor,Layout,Wizard}/`
 - **Zustand state management** (minimal, auth only)
 - **TipTap rich text editor** with table/code block support
