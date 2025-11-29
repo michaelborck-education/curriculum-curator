@@ -1,5 +1,11 @@
 # Root-level .gitignore for Curriculum Curator
 
+# Sensitive files - NEVER commit tokens or secrets
+tokens.txt
+*-token.txt
+*.token
+secrets.json
+
 # Environment files
 .env
 .env.local

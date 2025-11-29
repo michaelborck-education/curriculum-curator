@@ -1,80 +1,57 @@
 # Curriculum Curator Documentation
 
-Welcome to the Curriculum Curator documentation. This tool helps educators create high-quality course materials using AI assistance while maintaining pedagogical best practices.
-
-## Quick Links
-
-- [Getting Started](guides/getting-started.md)
-- [Architecture Overview](concepts/architecture.md)
-- [API Reference](api/README.md)
-- [Development Guide](../DEVELOPMENT_GUIDE.md)
+Documentation for Curriculum Curator - an AI-powered tool for creating pedagogically-sound course materials.
 
 ## Documentation Structure
 
-### [Architecture Decision Records (ADRs)](adr/)
-Important architectural decisions and their rationale.
+```
+docs/
+├── adr/              # Architecture Decision Records
+├── api/              # API reference documentation
+├── concepts/         # Conceptual overviews
+├── development/      # Development guides
+├── guides/           # How-to guides
+├── reference/        # Reference material
+├── mocks/            # UI mockups
+├── PRD-Development/  # PRD workflow process
+└── archive/          # Historical planning docs
+```
 
-### [Concepts](concepts/)
-- [Architecture Overview](concepts/architecture.md)
-- [Teaching Philosophy System](concepts/teaching-philosophy.md)
-- [Plugin System](concepts/plugin-system.md)
-- [Content Generation Pipeline](concepts/content-generation.md)
+## Quick Links
 
-### [API Documentation](api/)
-- [Core API](api/core.md)
-- [Plugin APIs](api/plugins.md)
-- [Web Routes](api/routes.md)
+| Document | Description |
+|----------|-------------|
+| [Getting Started](guides/getting-started.md) | Setup and first steps |
+| [Architecture](concepts/architecture.md) | System design overview |
+| [Deployment](guides/deployment.md) | Production deployment |
+| [Development Guide](development/DEVELOPMENT_GUIDE.md) | Contributing to the project |
+| [Security](SECURITY.md) | Security considerations |
 
-### [Guides](guides/)
-- [Getting Started](guides/getting-started.md)
-- [Creating Custom Validators](guides/custom-validators.md)
-- [Teaching Style Configuration](guides/teaching-styles.md)
+## Key Documentation
+
+### Architecture Decision Records (ADRs)
+Located in [`adr/`](adr/) - documents important architectural decisions and their rationale.
+
+### Product Requirements
+- [PRD-Curriculum-Curator.md](PRD-Curriculum-Curator.md) - Main product requirements document
+
+### Guides
 - [Authentication & Security](guides/authentication-security.md)
-- [Deployment Guide](guides/deployment.md)
+- [Docker VPS Deployment](guides/docker-vps-deployment.md)
+- [Email Configuration](guides/email-configuration.md)
+- [Teaching Styles](guides/teaching-styles.md)
 
-### [Reference](reference/)
-- [Configuration Options](reference/configuration.md)
-- [Plugin Catalog](reference/plugin-catalog.md)
-- [Teaching Styles Reference](reference/teaching-styles.md)
+### Development
+- [Development Guide](development/DEVELOPMENT_GUIDE.md)
+- [Testing Guide](development/TESTING_GUIDE.md)
+- [Git Migration Plan](development/GIT_MIGRATION_PLAN.md)
 
-## Key Features
+## Archive
 
-### 🎯 Teaching Philosophy Aware
-- 9 different teaching styles supported
-- Adaptive content generation based on pedagogical approach
-- Teaching style detection questionnaire
+Historical planning documents and migration plans are preserved in [`archive/`](archive/) for reference.
+These include early UX analysis, migration plans from previous frameworks, and completed refactoring tasks.
 
-### 🧙 Dual UI Modes
-- **Wizard Mode**: Step-by-step guided creation for beginners
-- **Expert Mode**: Power user interface with all options visible
+## Related
 
-### 🔌 Extensible Plugin System
-- Custom validators for content quality checks
-- Remediators for automatic content improvement
-- Easy to add new plugins
-
-### 📚 Comprehensive Course Management
-- Multi-course support
-- Week-by-week material organization
-- Various content types (lectures, worksheets, quizzes, etc.)
-
-### 🤖 LLM Integration
-- Multiple provider support (planned)
-- Teaching style-aware prompt generation
-- Streaming responses for better UX
-
-## Project Status
-
-This is a FastHTML-based reimplementation of the Curriculum Curator, migrated from the original Tauri desktop application. The project aims to make course content creation more accessible through a web interface while maintaining the pedagogical awareness of the original.
-
-## Contributing
-
-See our [Contributing Guide](CONTRIBUTING.md) for information on how to contribute to the project.
-
-## License
-
-[License information]
-
-## Support
-
-[Support information]
+- [CLAUDE.md](../CLAUDE.md) - AI assistant instructions for this project
+- [backend/BACKEND_STATUS.md](../backend/BACKEND_STATUS.md) - Backend code status tracking
