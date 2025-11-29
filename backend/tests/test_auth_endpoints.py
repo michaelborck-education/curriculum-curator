@@ -21,7 +21,7 @@ class TestAuthEndpoints:
     @pytest.fixture(autouse=True)
     def setup(self, backend_available):
         """Ensure backend is running before tests"""
-        pass  # backend_available fixture handles the check
+        # backend_available fixture handles the check
 
     @pytest.fixture
     def unique_email(self) -> str:

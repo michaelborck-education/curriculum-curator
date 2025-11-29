@@ -128,22 +128,22 @@ class Assessment(Base):
     )
 
     # Relationships
-    unit: Mapped["Unit"] = relationship(back_populates="assessments")
+    unit: Mapped[Unit] = relationship(back_populates="assessments")
 
     # Assessment-specific learning outcomes
-    assessment_outcomes: Mapped[list["AssessmentLearningOutcome"]] = relationship(
+    assessment_outcomes: Mapped[list[AssessmentLearningOutcome]] = relationship(
         back_populates="assessment",
         cascade="all, delete-orphan",
     )
 
     # Many-to-many with ULOs through mapping table
-    learning_outcomes: Mapped[list["UnitLearningOutcome"]] = relationship(
+    learning_outcomes: Mapped[list[UnitLearningOutcome]] = relationship(
         secondary="assessment_ulo_mappings",
         backref="assessments",
     )
 
     # Many-to-many with materials through mapping table
-    linked_materials: Mapped[list["WeeklyMaterial"]] = relationship(
+    linked_materials: Mapped[list[WeeklyMaterial]] = relationship(
         secondary="assessment_material_links",
         back_populates="assessments",
     )

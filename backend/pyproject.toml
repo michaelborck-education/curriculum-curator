@@ -159,6 +159,7 @@ ignore = [
     "B904",    # raise from within except - acceptable in this context
     "ARG001",  # unused function arguments
     "ARG002",  # unused method arguments
+    "TC003",   # move stdlib import into TYPE_CHECKING - conflicts with SQLAlchemy Mapped[] which needs runtime types
 ]
 exclude = [
     ".bzr",
