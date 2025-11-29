@@ -288,13 +288,6 @@ except ImportError as e:
     logger.warning(f"Failed to load content_workflow routes: {e}")
 
 try:
-    from app.api.routes import llm
-
-    app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
-except ImportError as e:
-    logger.warning(f"Failed to load llm routes: {e}")
-
-try:
     from app.api.routes import llm_config
 
     app.include_router(llm_config.router, prefix="/api/llm-config", tags=["llm-config"])
@@ -304,6 +297,7 @@ except ImportError as e:
 try:
     from app.api.routes import ai
 
+    # AI routes handle all LLM functionality (merged from /api/llm and /api/ai)
     app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 except ImportError as e:
     logger.warning(f"Failed to load ai routes: {e}")

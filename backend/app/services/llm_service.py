@@ -7,6 +7,7 @@ with support for:
 - Streaming responses
 - Structured JSON output
 - Token estimation and cost tracking
+- Educational AI features (pedagogy analysis, question generation, etc.)
 """
 
 import json
@@ -21,6 +22,12 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.system_settings import SystemSettings
 from app.models.user import User
+from app.schemas.llm import (
+    ChatMessage,
+    GeneratedFeedback,
+    GeneratedQuestion,
+    PedagogyAnalysisResponse,
+)
 from app.services.prompt_templates import PromptTemplate
 
 # Configure LiteLLM
@@ -28,9 +35,8 @@ litellm.drop_params = True  # Automatically drop unsupported params per provider
 
 
 class LLMService:
-    """Unified LLM service using LiteLLM for multi-provider support"""
+    """Unified LLM service with multi-provider support and educational AI features"""
 
-    # Default models per provider
     DEFAULT_MODELS = {
         "openai": "gpt-4",
         "anthropic": "claude-3-5-sonnet-20241022",
@@ -38,8 +44,20 @@ class LLMService:
         "gemini": "gemini/gemini-pro",
     }
 
-    def __init__(self):
-        pass
+    def __init__(self) -> None:
+        self.providers: dict[str, bool] = {}
+        self._check_providers()
+
+    def _check_providers(self) -> None:
+        """Check which providers are available based on environment variables"""
+        if settings.OPENAI_API_KEY:
+            self.providers["openai"] = True
+        if settings.ANTHROPIC_API_KEY:
+            self.providers["anthropic"] = True
+
+    # =========================================================================
+    # Core LLM Methods
+    # =========================================================================
 
     def _get_system_settings(self, db: Session) -> dict:
         """Get system-wide LLM settings from database"""
@@ -61,25 +79,23 @@ class LLMService:
             )
             .all()
         )
-
         for setting in system_settings:
             settings_dict[setting.key] = setting.value
-
         return settings_dict
 
     def _get_user_api_key(self, provider: str, user_config: dict) -> str | None:
         """Extract API key from user config based on provider"""
-        api_key_map = {
+        key_map = {
             "openai": "openai_api_key",
             "anthropic": "anthropic_api_key",
             "gemini": "gemini_api_key",
         }
-        key_name = api_key_map.get(provider)
+        key_name = key_map.get(provider)
         return user_config.get(key_name) if key_name else None
 
     def _get_system_api_key(self, provider: str, system_settings: dict) -> str | None:
         """Get system API key for provider"""
-        provider_settings_map = {
+        provider_map = {
             "openai": ("system_openai_api_key", settings.OPENAI_API_KEY),
             "anthropic": ("system_anthropic_api_key", settings.ANTHROPIC_API_KEY),
             "gemini": (
@@ -87,11 +103,9 @@ class LLMService:
                 getattr(settings, "GEMINI_API_KEY", None),
             ),
         }
-
-        if provider not in provider_settings_map:
+        if provider not in provider_map:
             return None
-
-        settings_key, env_key = provider_settings_map[provider]
+        settings_key, env_key = provider_map[provider]
         return system_settings.get(settings_key) or env_key
 
     def _get_user_llm_config(
@@ -116,32 +130,19 @@ class LLMService:
     def _get_llm_config(
         self, user: User | None = None, db: Session | None = None
     ) -> tuple[str, str, str | None, str | None]:
-        """
-        Get LLM configuration based on user preferences and system settings.
-
-        Returns:
-            Tuple of (model, provider, api_key, api_base)
-        """
-        # Get system settings
+        """Get LLM configuration based on user preferences and system settings."""
         system_settings = self._get_system_settings(db) if db else {}
-
-        # Try user config first (BYOK)
         provider, model, api_key = self._get_user_llm_config(user)
 
-        # Fall back to system defaults if needed
         if not provider:
             provider = system_settings.get("default_llm_provider", "openai")
             model = system_settings.get("default_llm_model")
             api_key = self._get_system_api_key(provider, system_settings)
 
-        # Ensure we have a model
         if not model:
             model = self.DEFAULT_MODELS.get(provider, "gpt-4")
 
-        # Format model name for LiteLLM (provider prefix for non-OpenAI)
         litellm_model = self._format_model_name(model, provider)
-
-        # Get API base for self-hosted (Ollama)
         api_base = None
         if provider == "ollama":
             api_base = system_settings.get("ollama_api_base", "http://localhost:11434")
@@ -150,63 +151,11 @@ class LLMService:
 
     def _format_model_name(self, model: str, provider: str) -> str:
         """Format model name for LiteLLM (add provider prefix if needed)"""
-        # If already prefixed, return as-is
         if "/" in model:
             return model
-
-        # Add provider prefix for non-OpenAI models
-        provider_prefixes = {
-            "anthropic": "",  # LiteLLM recognizes claude- models
-            "ollama": "ollama/",
-            "gemini": "gemini/",
-        }
-
-        prefix = provider_prefixes.get(provider, "")
+        prefixes = {"anthropic": "", "ollama": "ollama/", "gemini": "gemini/"}
+        prefix = prefixes.get(provider, "")
         return f"{prefix}{model}" if prefix else model
-
-    async def generate_content(
-        self,
-        pedagogy: str,
-        topic: str,
-        content_type: str,
-        user: User | None = None,
-        db: Session | None = None,
-    ) -> AsyncGenerator[str, None]:
-        """Generate educational content using LLM with streaming"""
-        model, provider, api_key, api_base = self._get_llm_config(user, db)
-
-        if not api_key and provider not in ["ollama"]:
-            yield f"No API key configured for provider {provider}"
-            return
-
-        prompt = self._build_prompt(pedagogy, topic, content_type)
-
-        messages = [
-            {"role": "system", "content": prompt},
-            {
-                "role": "user",
-                "content": f"Create {content_type} content about: {topic}",
-            },
-        ]
-
-        try:
-            response = await acompletion(
-                model=model,
-                messages=messages,
-                api_key=api_key,
-                api_base=api_base,
-                stream=True,
-            )
-
-            # Cast to async iterable for streaming response
-            async for chunk in cast("Any", response):
-                if hasattr(chunk, "choices") and chunk.choices:
-                    delta = chunk.choices[0].delta
-                    if hasattr(delta, "content") and delta.content:
-                        yield delta.content
-
-        except Exception as e:
-            yield f"Error generating content: {e!s}"
 
     async def generate_text(
         self,
@@ -218,21 +167,7 @@ class LLMService:
         max_tokens: int | None = None,
         stream: bool = False,
     ) -> AsyncGenerator[str, None] | str:
-        """
-        Generate text from a prompt.
-
-        Args:
-            prompt: The user prompt
-            system_prompt: Optional system prompt
-            user: User for BYOK support
-            db: Database session
-            temperature: Sampling temperature (0-2)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-
-        Returns:
-            Generated text or async generator of chunks
-        """
+        """Generate text from a prompt with optional streaming."""
         model, provider, api_key, api_base = self._get_llm_config(user, db)
 
         if not api_key and provider not in ["ollama"]:
@@ -280,7 +215,6 @@ class LLMService:
                 max_tokens=max_tokens,
                 stream=False,
             )
-            # Non-streaming response
             result = cast("Any", response)
             return result.choices[0].message.content or ""
 
@@ -294,39 +228,49 @@ class LLMService:
                 return error_gen()
             return error_msg
 
-    async def enhance_content(
+    async def generate_content(
         self,
-        content: str,
-        enhancement_type: str,
+        pedagogy: str,
+        topic: str,
+        content_type: str,
         user: User | None = None,
         db: Session | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Generate educational content using LLM with streaming"""
+        model, provider, api_key, api_base = self._get_llm_config(user, db)
+
+        if not api_key and provider not in ["ollama"]:
+            yield f"No API key configured for provider {provider}"
+            return
+
+        prompt = self._build_pedagogy_prompt(pedagogy, topic, content_type)
+        messages = [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": f"Create {content_type} content about: {topic}",
+            },
+        ]
+
+        try:
+            response = await acompletion(
+                model=model,
+                messages=messages,
+                api_key=api_key,
+                api_base=api_base,
+                stream=True,
+            )
+            async for chunk in cast("Any", response):
+                if hasattr(chunk, "choices") and chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, "content") and delta.content:
+                        yield delta.content
+        except Exception as e:
+            yield f"Error generating content: {e!s}"
+
+    def _build_pedagogy_prompt(
+        self, pedagogy: str, topic: str, content_type: str
     ) -> str:
-        """Enhance existing content"""
-        enhancement_prompts = {
-            "improve": "Improve the clarity, structure, and educational effectiveness of this content while preserving its core message:",
-            "simplify": "Simplify this content for easier understanding while maintaining key concepts:",
-            "expand": "Expand this content with more details, examples, and explanations:",
-            "summarize": "Create a concise summary of this content:",
-        }
-
-        system_prompt = enhancement_prompts.get(
-            enhancement_type, "Enhance this educational content:"
-        )
-
-        result = await self.generate_text(
-            prompt=content,
-            system_prompt=system_prompt,
-            user=user,
-            db=db,
-            temperature=0.7,
-        )
-
-        if isinstance(result, str):
-            return result
-        # If it's a generator (shouldn't happen with stream=False), collect it
-        return "".join([chunk async for chunk in result])
-
-    def _build_prompt(self, pedagogy: str, topic: str, content_type: str) -> str:
         """Build pedagogically-aware prompt"""
         style = pedagogy.lower().replace(" ", "-")
         styles = {
@@ -340,7 +284,6 @@ class LLMService:
             "constructivist": "Build on prior knowledge and encourage meaning-making.",
             "experiential": "Focus on learning through experience and reflection.",
         }
-
         return f"""You are an expert educational content creator specializing in {style} learning.
 {styles.get(style, "")}
 Create content that aligns with this pedagogical approach."""
@@ -354,29 +297,13 @@ Create content that aligns with this pedagogical approach."""
         temperature: float = 0.7,
         max_retries: int = 3,
     ) -> tuple[BaseModel | None, str | None]:
-        """
-        Generate structured content with JSON output.
-
-        Args:
-            prompt: The prompt to send to the LLM
-            response_model: Pydantic model class for response validation
-            user: User making the request (for API key selection)
-            db: Database session
-            temperature: LLM temperature (0-1)
-            max_retries: Number of retries for parsing failures
-
-        Returns:
-            Tuple of (parsed_model, error_message)
-        """
+        """Generate structured content with JSON output and Pydantic validation."""
         model, provider, api_key, api_base = self._get_llm_config(user, db)
 
         if not api_key and provider not in ["ollama"]:
             return None, f"No API key configured for provider {provider}"
 
-        # Get JSON schema from Pydantic model
         json_schema = response_model.model_json_schema()
-
-        # Enhance prompt with JSON instructions
         enhanced_prompt = f"""{prompt}
 
 IMPORTANT: You must respond with valid JSON that matches this exact schema:
@@ -392,13 +319,9 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
             {"role": "user", "content": enhanced_prompt},
         ]
 
-        # Try to get structured response
         for attempt in range(max_retries):
             try:
-                # Adjust temperature for retries
                 current_temp = max(0.3, temperature - (attempt * 0.1))
-
-                # Use JSON mode if available (OpenAI, some others)
                 response_format = None
                 if provider == "openai" and "gpt-4" in model:
                     response_format = {"type": "json_object"}
@@ -412,11 +335,10 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
                     response_format=response_format,
                 )
 
-                # Non-streaming response
                 result = cast("Any", response)
                 content = result.choices[0].message.content or ""
 
-                # Clean response (remove markdown if present)
+                # Clean markdown formatting if present
                 content = content.strip()
                 if content.startswith("```json"):
                     content = content[7:]
@@ -426,17 +348,10 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
                     content = content[:-3]
                 content = content.strip()
 
-                # Parse JSON
                 json_data = json.loads(content)
-
-                # Validate with Pydantic
-                result = response_model(**json_data)
-                return result, None
+                return response_model(**json_data), None
 
             except json.JSONDecodeError as e:
-                error_msg = (
-                    f"JSON parsing failed (attempt {attempt + 1}/{max_retries}): {e!s}"
-                )
                 if attempt < max_retries - 1:
                     messages.append(
                         {
@@ -445,19 +360,21 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
                         }
                     )
                     continue
-                return None, error_msg
+                return None, f"JSON parsing failed after {max_retries} attempts: {e!s}"
 
             except ValidationError as e:
-                error_msg = f"Schema validation failed (attempt {attempt + 1}/{max_retries}): {e!s}"
                 if attempt < max_retries - 1:
                     messages.append(
                         {
                             "role": "user",
-                            "content": f"Your JSON didn't match the required schema. Errors: {e.json()}. Please fix and provide valid JSON.",
+                            "content": f"Your JSON didn't match the required schema. Errors: {e.json()}. Please fix.",
                         }
                     )
                     continue
-                return None, error_msg
+                return (
+                    None,
+                    f"Schema validation failed after {max_retries} attempts: {e!s}",
+                )
 
             except Exception as e:
                 return None, f"Unexpected error: {e!s}"
@@ -472,123 +389,448 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
         user: User | None = None,
         db: Session | None = None,
     ) -> tuple[Any, str | None]:
-        """
-        Generate content using a prompt template.
-
-        Args:
-            template: PromptTemplate instance
-            context: Context variables for template
-            response_model: Optional Pydantic model for structured output
-            user: User making the request
-            db: Database session
-
-        Returns:
-            Tuple of (result, error_message)
-        """
+        """Generate content using a prompt template."""
         try:
-            # Render the template
             prompt = template.render(**context)
-
-            # Generate structured or unstructured response
             if response_model:
                 return await self.generate_structured_content(
-                    prompt=prompt,
-                    response_model=response_model,
-                    user=user,
-                    db=db,
+                    prompt=prompt, response_model=response_model, user=user, db=db
                 )
-
-            # Unstructured text generation
-            result = await self.generate_text(
-                prompt=prompt,
-                user=user,
-                db=db,
-            )
+            result = await self.generate_text(prompt=prompt, user=user, db=db)
             if isinstance(result, str):
                 return result, None
-            # Collect generator
             return "".join([chunk async for chunk in result]), None
-
         except ValueError as e:
             return None, f"Template error: {e!s}"
         except Exception as e:
             return None, f"Generation error: {e!s}"
 
+    # =========================================================================
+    # Educational AI Methods
+    # =========================================================================
+
+    async def enhance_content(
+        self,
+        content: str,
+        enhancement_type: str = "improve",
+        pedagogy_style: str | None = None,
+        target_level: str | None = None,
+        preserve_structure: bool = True,
+        focus_areas: list[str] | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> str:
+        """Enhance educational content with AI assistance."""
+        instructions = {
+            "improve": "Improve the clarity, engagement, and educational effectiveness",
+            "simplify": "Simplify the language and concepts for better understanding",
+            "expand": "Expand with more details, examples, and explanations",
+            "summarize": "Create a concise summary maintaining key concepts",
+        }
+
+        prompt = f"""{instructions.get(enhancement_type, instructions["improve"])} of the following content:
+
+Content:
+{content}
+
+Requirements:
+{f"- Apply {pedagogy_style} pedagogical style" if pedagogy_style else ""}
+{f"- Target education level: {target_level}" if target_level else ""}
+{"- Preserve the original structure and formatting" if preserve_structure else "- Reorganize for better flow if needed"}
+{f"- Focus on these areas: {', '.join(focus_areas)}" if focus_areas else ""}
+
+Provide the enhanced content maintaining markdown formatting."""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert educational content enhancer.",
+            user=user,
+            db=db,
+        )
+        if isinstance(result, str):
+            return result
+        return "".join([chunk async for chunk in result])
+
+    async def analyze_pedagogy(
+        self,
+        content: str,
+        target_style: str | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> PedagogyAnalysisResponse:
+        """Analyze content for pedagogical quality and style alignment."""
+        prompt = f"""Analyze the following educational content for pedagogical quality:
+
+Content:
+{content}
+
+Please provide:
+1. The current pedagogical style/approach
+2. Confidence score (0-1)
+3. Key strengths from a pedagogical perspective
+4. Areas for improvement
+5. Specific actionable suggestions
+{f"6. Alignment with {target_style} style (0-1 score)" if target_style else ""}
+
+Format your response as JSON with keys: current_style, confidence, strengths, weaknesses, suggestions, alignment_score"""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert in educational pedagogy. Always respond with valid JSON.",
+            user=user,
+            db=db,
+        )
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        try:
+            data = json.loads(response_text)
+            return PedagogyAnalysisResponse(**data)
+        except (json.JSONDecodeError, ValueError):
+            return PedagogyAnalysisResponse(
+                current_style="unknown",
+                confidence=0.5,
+                strengths=["Content provided"],
+                weaknesses=["Analysis failed"],
+                suggestions=["Please review content manually"],
+            )
+
+    async def generate_questions(
+        self,
+        content: str,
+        question_types: list[str] | None = None,
+        count: int = 5,
+        difficulty: str = "medium",
+        bloom_levels: list[str] | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> list[GeneratedQuestion]:
+        """Generate assessment questions from content."""
+        question_types = question_types or ["multiple_choice", "short_answer"]
+
+        prompt = f"""Generate {count} assessment questions from the following content:
+
+Content:
+{content}
+
+Requirements:
+- Question types: {", ".join(question_types)}
+- Difficulty level: {difficulty}
+{f"- Target Bloom taxonomy levels: {', '.join(bloom_levels)}" if bloom_levels else ""}
+
+For each question provide: question text, type, options (for MC), correct answer, explanation, difficulty, Bloom level, points.
+Format as JSON array."""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert assessment designer. Always respond with valid JSON.",
+            user=user,
+            db=db,
+        )
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        try:
+            questions_data = json.loads(response_text)
+            return [GeneratedQuestion(**q) for q in questions_data]
+        except (json.JSONDecodeError, ValueError):
+            return [
+                GeneratedQuestion(
+                    question="What are the key concepts discussed in this content?",
+                    question_type="short_answer",
+                    difficulty=difficulty,
+                    bloom_level="comprehension",
+                    points=5,
+                )
+            ]
+
+    async def generate_summary(
+        self,
+        content: str,
+        summary_type: str = "key_points",
+        max_length: int | None = None,
+        bullet_points: bool = True,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> str:
+        """Generate summary of educational content."""
+        format_instruction = "bullet points" if bullet_points else "paragraph form"
+        length_instruction = f"Maximum {max_length} words" if max_length else "Concise"
+
+        prompts = {
+            "executive": "Create an executive summary suitable for stakeholders",
+            "key_points": "Extract and summarize the key learning points",
+            "abstract": "Write an academic abstract",
+            "tldr": "Create a brief TL;DR summary",
+        }
+
+        prompt = f"""{prompts.get(summary_type, prompts["key_points"])} from the following content:
+
+Content:
+{content}
+
+Requirements:
+- Format: {format_instruction}
+- Length: {length_instruction}"""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert at summarizing educational content clearly and concisely.",
+            user=user,
+            db=db,
+        )
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+    async def generate_feedback(
+        self,
+        student_work: str,
+        rubric: dict[str, Any] | None = None,
+        assignment_context: str | None = None,
+        feedback_tone: str = "encouraging",
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> GeneratedFeedback:
+        """Generate feedback for student work."""
+        tone_instructions = {
+            "encouraging": "Be supportive and highlight progress",
+            "neutral": "Provide balanced, objective feedback",
+            "direct": "Be clear and direct about areas needing improvement",
+        }
+
+        prompt = f"""Provide feedback on the following student work:
+
+{f"Assignment: {assignment_context}" if assignment_context else ""}
+{f"Rubric: {json.dumps(rubric, indent=2)}" if rubric else ""}
+
+Student Work:
+{student_work}
+
+Provide {feedback_tone} feedback with strengths and areas for improvement.
+Format as JSON with keys: overall_feedback, strengths, areas_for_improvement, specific_suggestions, grade_suggestion"""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt=f"You are an experienced educator. {tone_instructions.get(feedback_tone, '')} Always respond with valid JSON.",
+            user=user,
+            db=db,
+        )
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        try:
+            data = json.loads(response_text)
+            return GeneratedFeedback(**data)
+        except (json.JSONDecodeError, ValueError):
+            return GeneratedFeedback(
+                overall_feedback="Thank you for your submission.",
+                strengths=["Submission completed"],
+                areas_for_improvement=["Please review the assignment requirements"],
+                specific_suggestions=["Consider reviewing the course materials"],
+            )
+
+    async def translate_content(
+        self,
+        content: str,
+        target_language: str,
+        preserve_formatting: bool = True,
+        cultural_adaptation: bool = False,
+        glossary: dict[str, str] | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> str:
+        """Translate educational content to another language."""
+        prompt = f"""Translate the following educational content to {target_language}:
+
+Content:
+{content}
+
+Requirements:
+{"- Preserve all markdown formatting" if preserve_formatting else ""}
+{"- Adapt examples and references for the target culture" if cultural_adaptation else "- Keep examples as-is"}
+{f"- Use these translations for technical terms: {json.dumps(glossary)}" if glossary else ""}
+- Maintain educational clarity and accuracy"""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt=f"You are an expert translator specializing in educational content. Translate to {target_language}.",
+            user=user,
+            db=db,
+        )
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+    async def generate_learning_path(
+        self,
+        topic: str,
+        current_knowledge: str,
+        target_level: str,
+        available_time: str,
+        learning_style: str | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> dict[str, Any]:
+        """Generate personalized learning path."""
+        prompt = f"""Create a personalized learning path for:
+
+Topic: {topic}
+Current Knowledge Level: {current_knowledge}
+Target Level: {target_level}
+Available Time: {available_time}
+{f"Preferred Learning Style: {learning_style}" if learning_style else ""}
+
+Provide: prerequisites, core concepts (in order), exercises, milestones, time estimates, resources.
+Format as JSON."""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert learning designer. Always respond with valid JSON.",
+            user=user,
+            db=db,
+        )
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            return {
+                "prerequisites": [],
+                "core_concepts": [topic],
+                "exercises": ["Practice exercises"],
+                "milestones": ["Complete topic"],
+                "estimated_hours": 10,
+                "resources": ["Course materials"],
+            }
+
+    async def detect_misconceptions(
+        self,
+        student_response: str,
+        correct_concept: str,
+        context: str | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> dict[str, Any]:
+        """Detect and explain student misconceptions."""
+        prompt = f"""Analyze the student's response for misconceptions:
+
+{f"Context/Question: {context}" if context else ""}
+Correct Concept: {correct_concept}
+Student Response: {student_response}
+
+Identify: misconceptions, confusion sources, corrections, remediation suggestions.
+Format as JSON."""
+
+        result = await self.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert educator skilled at identifying misconceptions. Always respond with valid JSON.",
+            user=user,
+            db=db,
+        )
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            return {
+                "misconceptions": ["Unable to analyze"],
+                "confusion_sources": ["Unknown"],
+                "corrections": ["Review the concept"],
+                "remediation_suggestions": ["Additional practice recommended"],
+            }
+
+    async def get_completion(
+        self,
+        messages: list[ChatMessage],
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        user: User | None = None,
+        db: Session | None = None,
+    ) -> str:
+        """Get chat completion from LLM provider."""
+        system_prompt = None
+        user_prompt = ""
+
+        for msg in messages:
+            if msg.role == "system":
+                system_prompt = msg.content
+            elif msg.role == "user":
+                user_prompt = msg.content
+
+        result = await self.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            user=user,
+            db=db,
+        )
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+    # =========================================================================
+    # Utility Methods
+    # =========================================================================
+
     def estimate_tokens(self, text: str, model: str = "gpt-4") -> int:
-        """
-        Estimate token count for a text using tiktoken.
-
-        Args:
-            text: Text to count tokens for
-            model: Model to use for tokenization
-
-        Returns:
-            Estimated token count
-        """
+        """Estimate token count for text using tiktoken."""
         try:
             import tiktoken
 
             encoding = tiktoken.encoding_for_model(model)
             return len(encoding.encode(text))
         except Exception:
-            # Fallback: rough estimation (~4 chars per token)
-            return len(text) // 4
+            return len(text) // 4  # Fallback: ~4 chars per token
 
     def estimate_cost(
-        self,
-        input_tokens: int,
-        output_tokens: int,
-        model: str = "gpt-4",
+        self, input_tokens: int, output_tokens: int, model: str = "gpt-4"
     ) -> float:
-        """
-        Estimate cost for token usage using LiteLLM's cost tracking.
-
-        Args:
-            input_tokens: Number of input tokens
-            output_tokens: Number of output tokens
-            model: Model name
-
-        Returns:
-            Estimated cost in USD
-        """
+        """Estimate cost for token usage."""
         try:
-            # Use LiteLLM's built-in cost calculation
-            cost = completion_cost(
-                model=model,
-                prompt="x" * input_tokens,  # Dummy for calculation
-                completion="x" * output_tokens,
+            return completion_cost(
+                model=model, prompt="x" * input_tokens, completion="x" * output_tokens
             )
-            return cost
         except Exception:
-            # Fallback to manual calculation
             pricing = {
                 "gpt-4": {"input": 0.03, "output": 0.06},
                 "gpt-4-turbo": {"input": 0.01, "output": 0.03},
                 "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
                 "claude-3-opus": {"input": 0.015, "output": 0.075},
                 "claude-3-sonnet": {"input": 0.003, "output": 0.015},
-                "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
             }
-
-            # Find matching model
             model_key = next((k for k in pricing if k in model.lower()), "gpt-4")
-            model_pricing = pricing[model_key]
-
-            input_cost = (input_tokens / 1000) * model_pricing["input"]
-            output_cost = (output_tokens / 1000) * model_pricing["output"]
-            return input_cost + output_cost
+            p = pricing[model_key]
+            return (input_tokens / 1000) * p["input"] + (output_tokens / 1000) * p[
+                "output"
+            ]
 
     async def list_available_models(self, provider: str | None = None) -> list[str]:
-        """
-        List available models for a provider.
-
-        Args:
-            provider: Optional provider filter
-
-        Returns:
-            List of model names
-        """
-        # Common models by provider
+        """List available models for a provider."""
         models = {
             "openai": [
                 "gpt-4",
@@ -601,103 +843,64 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
                 "claude-3-5-sonnet-20241022",
                 "claude-3-opus-20240229",
                 "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
             ],
-            "ollama": [
-                "ollama/llama3.2",
-                "ollama/llama3.1",
-                "ollama/mistral",
-                "ollama/codellama",
-            ],
-            "gemini": [
-                "gemini/gemini-pro",
-                "gemini/gemini-pro-vision",
-            ],
+            "ollama": ["ollama/llama3.2", "ollama/llama3.1", "ollama/mistral"],
+            "gemini": ["gemini/gemini-pro", "gemini/gemini-pro-vision"],
         }
-
         if provider:
             return models.get(provider, [])
-
-        # Return all models
-        all_models = []
-        for provider_models in models.values():
-            all_models.extend(provider_models)
-        return all_models
+        return [m for provider_models in models.values() for m in provider_models]
 
     async def test_connection(
         self,
         provider: str,
         api_key: str | None = None,
         api_url: str | None = None,
-        bearer_token: str | None = None,
         model_name: str | None = None,
-        test_prompt: str = "Hello, please respond with 'Connection successful!'",
     ) -> dict[str, Any]:
-        """
-        Test LLM connection with provided configuration.
-
-        Args:
-            provider: LLM provider name
-            api_key: API key for the provider
-            api_url: API URL (for self-hosted like Ollama)
-            bearer_token: Bearer token (for Ollama)
-            model_name: Model to test with
-            test_prompt: Prompt to test generation
-
-        Returns:
-            Dict with success status, message, and available models
-        """
+        """Test LLM connection with provided configuration."""
         try:
-            # Determine model
             model = model_name or self.DEFAULT_MODELS.get(provider, "gpt-3.5-turbo")
             litellm_model = self._format_model_name(model, provider)
 
-            # For Ollama, try to list models first
             available_models: list[str] = []
             if provider == "ollama":
                 try:
                     import httpx
 
                     base_url = api_url or "http://localhost:11434"
-                    headers = {}
-                    if bearer_token:
-                        headers["Authorization"] = f"Bearer {bearer_token}"
-
                     async with httpx.AsyncClient() as client:
                         response = await client.get(
-                            f"{base_url}/api/tags", headers=headers, timeout=10.0
+                            f"{base_url}/api/tags", timeout=10.0
                         )
                         if response.status_code == 200:
-                            models_data = response.json()
                             available_models = [
-                                m["name"] for m in models_data.get("models", [])
+                                m["name"] for m in response.json().get("models", [])
                             ]
                 except Exception:
-                    pass  # Continue with test even if model listing fails
+                    pass
             else:
                 available_models = await self.list_available_models(provider)
 
-            # Test generation
-            messages = [{"role": "user", "content": test_prompt}]
-
             response = await acompletion(
                 model=litellm_model,
-                messages=messages,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Hello, respond with 'Connection successful!'",
+                    }
+                ],
                 api_key=api_key,
                 api_base=api_url,
                 max_tokens=50,
             )
-
             result = cast("Any", response)
-            response_text = result.choices[0].message.content or ""
-
             return {
                 "success": True,
                 "message": "Connection successful",
                 "available_models": available_models,
-                "response_text": response_text,
+                "response_text": result.choices[0].message.content or "",
             }
-
         except Exception as e:
             return {
                 "success": False,
@@ -708,23 +911,11 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
     def get_token_stats(
         self, db: Session, user_id: str, days: int = 30
     ) -> dict[str, Any]:
-        """
-        Get token usage statistics for a user.
-
-        Args:
-            db: Database session
-            user_id: User ID to get stats for
-            days: Number of days to look back
-
-        Returns:
-            Dict with usage statistics
-        """
+        """Get token usage statistics for a user."""
         from datetime import datetime, timedelta
-
         from app.models.llm_config import TokenUsageLog
 
         start_date = datetime.utcnow() - timedelta(days=days)
-
         logs = (
             db.query(TokenUsageLog)
             .filter(
@@ -736,17 +927,17 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
 
         total_tokens = sum(log.total_tokens or 0 for log in logs)
         total_cost = sum(log.cost_estimate or 0 for log in logs)
-
         by_provider: dict[str, int] = {}
         by_model: dict[str, int] = {}
 
         for log in logs:
-            provider = log.provider or "unknown"
-            model = log.model or "unknown"
             tokens = log.total_tokens or 0
-
-            by_provider[provider] = by_provider.get(provider, 0) + tokens
-            by_model[model] = by_model.get(model, 0) + tokens
+            by_provider[log.provider or "unknown"] = (
+                by_provider.get(log.provider or "unknown", 0) + tokens
+            )
+            by_model[log.model or "unknown"] = (
+                by_model.get(log.model or "unknown", 0) + tokens
+            )
 
         return {
             "user_id": user_id,
@@ -759,5 +950,5 @@ Provide ONLY the JSON object, no additional text or markdown formatting."""
         }
 
 
-# Create singleton instance
+# Singleton instance
 llm_service = LLMService()

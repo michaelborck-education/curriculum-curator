@@ -36,10 +36,7 @@ async def test_llm_connection(
         else str(request.provider),
         api_key=request.api_key,
         api_url=request.api_url,
-        bearer_token=request.bearer_token,
         model_name=request.model_name,
-        test_prompt=request.test_prompt
-        or "Hello, please respond with 'Connection successful!'",
     )
 
     return LLMTestResponse(**result)

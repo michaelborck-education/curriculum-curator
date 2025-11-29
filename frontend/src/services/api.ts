@@ -41,13 +41,13 @@ export const register = (
 ): Promise<ApiResponse> =>
   api.post('/auth/register', { email, password, name });
 
-// Content endpoints
+// Content endpoints (AI-powered)
 export const generateContent = (
   type: ContentType,
   pedagogy: PedagogyType,
   topic: string
 ): Promise<ApiResponse> =>
-  api.post('/llm/generate', {
+  api.post('/ai/generate', {
     content_type: type,
     pedagogy_style: pedagogy,
     topic,
@@ -57,7 +57,11 @@ export const enhanceContent = (
   content: string,
   pedagogy: PedagogyType
 ): Promise<ApiResponse> =>
-  api.post('/llm/enhance', { content, pedagogy_style: pedagogy });
+  api.post('/ai/enhance', {
+    content,
+    enhancement_type: 'improve',
+    pedagogy_style: pedagogy,
+  });
 
 // Unit endpoints
 export const getUnits = (): Promise<ApiResponse<Unit[]>> => api.get('/units');

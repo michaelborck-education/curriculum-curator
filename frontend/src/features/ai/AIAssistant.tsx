@@ -47,7 +47,7 @@ const AIAssistant = () => {
     // Check LLM provider status
     const checkProviderStatus = async () => {
       try {
-        const response = await api.get('/llm/provider-status');
+        const response = await api.get('/ai/provider-status');
         setProviderStatus(response.data);
       } catch (error) {
         console.error('Error checking provider status:', error);
@@ -85,7 +85,7 @@ const AIAssistant = () => {
 
     try {
       // Real API call to generate content
-      const response = await api.post('/llm/generate', {
+      const response = await api.post('/ai/generate', {
         context: input,
         content_type: 'assistant_response',
         pedagogy_style: user?.teachingPhilosophy || 'mixed_approach',
