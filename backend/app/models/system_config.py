@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import JSON, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -37,7 +37,7 @@ class SystemConfig(Base):
         GUID(), primary_key=True, default=uuid.uuid4, index=True
     )
     key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    value: Mapped[Any] = mapped_column(type_=None)  # JSON field
+    value: Mapped[Any] = mapped_column(JSON)  # JSON field
     category: Mapped[str] = mapped_column(String(50), index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_sensitive: Mapped[bool] = mapped_column(

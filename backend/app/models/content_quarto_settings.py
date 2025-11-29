@@ -4,6 +4,7 @@ Content Quarto settings model for storing both simple and advanced settings
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
@@ -13,8 +14,6 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from app.models.content import Content
 
 

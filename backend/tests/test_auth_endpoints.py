@@ -14,17 +14,14 @@ BASE_URL = "http://localhost:8000"
 API_URL = f"{BASE_URL}/api"
 
 
+@pytest.mark.integration
 class TestAuthEndpoints:
     """Test all authentication endpoints with real API calls"""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, backend_available):
         """Ensure backend is running before tests"""
-        try:
-            response = requests.get(f"{BASE_URL}/health")
-            assert response.status_code == 200
-        except requests.exceptions.ConnectionError:
-            pytest.exit("Backend must be running! Start with ./backend.sh")
+        pass  # backend_available fixture handles the check
 
     @pytest.fixture
     def unique_email(self) -> str:

@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import String, Text, func
+from sqlalchemy import JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -75,10 +75,10 @@ class User(Base):
 
     # JSON fields for flexible configuration
     teaching_preferences: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
-    )  # Additional pedagogy preferences - SQLAlchemy will use JSON
+        JSON, nullable=True
+    )  # Additional pedagogy preferences
     llm_config: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # API keys (encrypted), model preferences
     content_generation_context: Mapped[str | None] = mapped_column(
         Text, nullable=True

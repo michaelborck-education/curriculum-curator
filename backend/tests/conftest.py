@@ -1,5 +1,9 @@
 """
-Simple pytest configuration - no mocks, test against running backend
+Pytest configuration for backend tests
+
+Supports two test modes:
+1. Unit tests - run without backend (test_services_unit.py)
+2. Integration tests - require running backend (test_auth*.py, test_basic.py)
 """
 
 import time
@@ -9,6 +13,15 @@ import requests
 
 BASE_URL = "http://localhost:8000"
 API_URL = f"{BASE_URL}/api"
+
+
+def is_backend_running() -> bool:
+    """Check if backend is running"""
+    try:
+        response = requests.get(f"{BASE_URL}/docs", timeout=2)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
 
 
 @pytest.fixture(scope="session")
@@ -23,15 +36,12 @@ def api_url():
     return API_URL
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_backend_running():
-    """Ensure backend is running before tests"""
-    try:
-        response = requests.get(f"{BASE_URL}/docs", timeout=2)
-        if response.status_code != 200:
-            pytest.exit("Backend is not running! Start it with ./backend.sh")
-    except requests.exceptions.RequestException:
-        pytest.exit("Backend is not running! Start it with ./backend.sh")
+@pytest.fixture(scope="session")
+def backend_available():
+    """Check if backend is available, skip integration tests if not"""
+    if not is_backend_running():
+        pytest.skip("Backend is not running - skipping integration tests")
+    return True
 
 
 @pytest.fixture

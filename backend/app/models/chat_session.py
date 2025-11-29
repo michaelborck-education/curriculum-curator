@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -71,35 +71,35 @@ class WorkflowChatSession(Base):
         String(50), default=WorkflowStage.INITIAL.value
     )
     workflow_data: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Stage-specific data
     context_data: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Accumulated context
 
     # Conversation history
     messages: Mapped[list[dict[str, Any]] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Array of message objects
     message_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Progress tracking
     progress_percentage: Mapped[float] = mapped_column(Float, default=0.0)
     stages_completed: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # List of completed stages
 
     # Decision tracking
     decisions_made: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Key decisions in workflow
     pending_questions: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Questions awaiting answers
 
     # Generated content tracking
     generated_content_ids: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # IDs of created content
     generated_outline_id: Mapped[str | None] = mapped_column(
         GUID(), nullable=True

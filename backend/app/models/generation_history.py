@@ -5,6 +5,7 @@ Generation history model for tracking LLM content generation
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -15,8 +16,6 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from app.models.content import Content
     from app.models.unit import Unit
     from app.models.user import User

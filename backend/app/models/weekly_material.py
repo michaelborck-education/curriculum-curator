@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -56,7 +56,7 @@ class WeeklyMaterial(Base):
 
     # Parent relationships
     unit_id: Mapped[str] = mapped_column(GUID(), ForeignKey("units.id"), index=True)
-    week_number: Mapped[int] = mapped_column(index=True)
+    week_number: Mapped[int] = mapped_column(Integer, index=True)
 
     # Material details
     title: Mapped[str] = mapped_column(String(500))
@@ -64,14 +64,14 @@ class WeeklyMaterial(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Content and metadata
-    duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     material_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", nullable=True
+        "metadata", JSON, nullable=True
     )
 
     # Organization
-    order_index: Mapped[int] = mapped_column(default=0)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(
         String(20), default=MaterialStatus.DRAFT.value, index=True
     )

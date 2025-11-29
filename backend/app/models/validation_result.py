@@ -5,6 +5,7 @@ Validation result model for plugin validation tracking
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -15,8 +16,6 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from app.models.content import Content
 
 

@@ -5,6 +5,7 @@ Content versioning model for tracking content history
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
@@ -14,8 +15,6 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from app.models.content import Content
     from app.models.user import User
 

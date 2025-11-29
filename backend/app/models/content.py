@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -87,7 +87,7 @@ class Content(Base):
     parent_content_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("contents.id"), nullable=True, index=True
     )
-    order_index: Mapped[int] = mapped_column(default=0)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
 
     # Weekly schedule mapping
     week_number: Mapped[int | None] = mapped_column(nullable=True, index=True)
@@ -96,17 +96,23 @@ class Content(Base):
     )
 
     # Educational metadata
-    learning_objectives: Mapped[list[str] | None] = mapped_column(nullable=True)
-    estimated_duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    learning_objectives: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    estimated_duration_minutes: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
     difficulty_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    prerequisites: Mapped[list[str] | None] = mapped_column(nullable=True)
+    prerequisites: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     # Generation and validation metadata
-    generation_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
-    validation_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
+    generation_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    validation_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
 
     # Additional metadata and settings
-    content_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
+    content_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(default=func.now())

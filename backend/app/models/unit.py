@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -82,7 +82,7 @@ class Unit(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Academic scheduling
-    year: Mapped[int] = mapped_column(index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)
     semester: Mapped[str] = mapped_column(String(20), index=True)  # Semester enum
     status: Mapped[str] = mapped_column(
         String(20), default=UnitStatus.DRAFT.value, index=True
@@ -95,7 +95,7 @@ class Unit(Base):
     difficulty_level: Mapped[str] = mapped_column(
         String(20), default=DifficultyLevel.INTERMEDIATE.value
     )
-    duration_weeks: Mapped[int] = mapped_column(default=12)
+    duration_weeks: Mapped[int] = mapped_column(Integer, default=12)
 
     # Ownership and access control
     owner_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id"), index=True)
@@ -107,7 +107,7 @@ class Unit(Base):
     )
 
     # Additional metadata and context
-    unit_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
+    unit_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     generation_context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Credit points and prerequisites (Australian system)

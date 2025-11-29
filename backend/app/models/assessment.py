@@ -2,12 +2,14 @@
 Assessment model for course evaluation management
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Date, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Date, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -101,7 +103,7 @@ class Assessment(Base):
 
     # Assessment details
     rubric: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Rubric structure
     questions: Mapped[int | None] = mapped_column(
         Integer, nullable=True

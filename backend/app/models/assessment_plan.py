@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -93,13 +93,13 @@ class AssessmentPlan(Base):
 
     # Learning outcomes alignment
     aligned_outcome_ids: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # List of outcome IDs
 
     # Rubric and criteria
     has_rubric: Mapped[bool] = mapped_column(default=False)
     rubric_criteria: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Structured rubric data
     marking_criteria: Mapped[str | None] = mapped_column(
         Text, nullable=True
@@ -109,7 +109,7 @@ class AssessmentPlan(Base):
     requirements: Mapped[str | None] = mapped_column(Text, nullable=True)
     instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     resources_provided: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Templates, datasets, etc.
 
     # Feedback

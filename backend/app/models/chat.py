@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import JSON, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -58,10 +58,10 @@ class ChatSession(Base):
         String(20), default=ContextScope.UNIT.value
     )
     context_content_ids: Mapped[list[str] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Specific content IDs for context
     context_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Additional context information
 
     # Session settings
@@ -131,15 +131,15 @@ class ChatMessage(Base):
 
     # Message metadata
     message_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Token counts, model info, etc.
     context_used: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # Context information used for this message
 
     # Generation information (for assistant messages)
     generation_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        nullable=True, type_=None
+        JSON, nullable=True
     )  # LLM generation details
 
     # Timestamps

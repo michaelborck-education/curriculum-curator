@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -47,7 +47,7 @@ class LLMConfiguration(Base):
     is_default: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
     settings: Mapped[dict[str, Any] | None] = mapped_column(
-        type_=None, default=dict
+        JSON, default=dict
     )  # For provider-specific settings
 
     # Timestamps
@@ -91,9 +91,7 @@ class TokenUsageLog(Base):
     feature: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # Which feature used tokens
-    usage_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        type_=None, default=dict
-    )
+    usage_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=dict)
 
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(default=func.now(), index=True)
