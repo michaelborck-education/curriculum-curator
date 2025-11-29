@@ -74,7 +74,8 @@ class ContentGenerationRequest(CamelModel):
 
     content_type: str
     pedagogy_style: str
-    context: dict[str, Any]
+    topic: str | None = None  # Simple topic string for generation
+    context: str | None = None  # Additional context/instructions
     stream: bool = False
 
 
@@ -123,18 +124,18 @@ class ContentVersionResponse(CamelModel):
     """Schema for content version responses"""
 
     id: str
-    material_id: str = Field(alias="materialId")
+    material_id: str
     version: int
-    parent_version_id: str | None = Field(None, alias="parentVersionId")
+    parent_version_id: str | None = None
     title: str
     content: dict[str, Any]
-    raw_content: str | None = Field(None, alias="rawContent")
-    created_at: str = Field(alias="createdAt")
-    created_by: str | None = Field(None, alias="createdBy")
-    change_summary: str | None = Field(None, alias="changeSummary")
-    is_latest: bool = Field(alias="isLatest")
-    word_count: int | None = Field(None, alias="wordCount")
-    quality_score: float | None = Field(None, alias="qualityScore")
+    raw_content: str | None = None
+    created_at: str
+    created_by: str | None = None
+    change_summary: str | None = None
+    is_latest: bool
+    word_count: int | None = None
+    quality_score: float | None = None
 
 
 class ContentVersionCompare(CamelModel):

@@ -18,10 +18,9 @@ from app.schemas.llm_config import (
     LLMTestResponse,
     UserTokenStats,
 )
-from app.services.llm_service_enhanced import EnhancedLLMService
+from app.services.llm_service import llm_service
 
 router = APIRouter()
-llm_service = EnhancedLLMService()
 
 
 @router.post("/test", response_model=LLMTestResponse)
@@ -32,12 +31,15 @@ async def test_llm_connection(
 ):
     """Test LLM connection with provided configuration"""
     result = await llm_service.test_connection(
-        provider=request.provider,
+        provider=request.provider.value
+        if hasattr(request.provider, "value")
+        else str(request.provider),
         api_key=request.api_key,
         api_url=request.api_url,
         bearer_token=request.bearer_token,
         model_name=request.model_name,
-        test_prompt=request.test_prompt,
+        test_prompt=request.test_prompt
+        or "Hello, please respond with 'Connection successful!'",
     )
 
     return LLMTestResponse(**result)
@@ -52,12 +54,8 @@ async def list_available_models(
     current_user: User = Depends(deps.get_current_user),
 ):
     """List available models for a provider"""
-    return await llm_service.list_models(
-        provider=provider,
-        api_key=api_key,
-        api_url=api_url,
-        bearer_token=bearer_token,
-    )
+    provider_str = provider.value if hasattr(provider, "value") else str(provider)
+    return await llm_service.list_available_models(provider=provider_str)
 
 
 @router.get("/configurations", response_model=list[LLMConfig])
@@ -192,12 +190,12 @@ def create_configuration(
     return LLMConfig(
         id=str(db_config.id),
         user_id=str(db_config.user_id) if db_config.user_id else None,
-        provider=db_config.provider,
+        provider=LLMProvider(db_config.provider),
         api_key=db_config.api_key,
         api_url=db_config.api_url,
         bearer_token=db_config.bearer_token,
         model_name=db_config.model_name,
-        temperature=db_config.temperature,
+        temperature=db_config.temperature if db_config.temperature is not None else 0.7,
         max_tokens=db_config.max_tokens,
         is_default=db_config.is_default,
         is_active=db_config.is_active,
@@ -236,12 +234,12 @@ def create_system_configuration(
     return LLMConfig(
         id=str(db_config.id),
         user_id=str(db_config.user_id) if db_config.user_id else None,
-        provider=db_config.provider,
+        provider=LLMProvider(db_config.provider),
         api_key=db_config.api_key,
         api_url=db_config.api_url,
         bearer_token=db_config.bearer_token,
         model_name=db_config.model_name,
-        temperature=db_config.temperature,
+        temperature=db_config.temperature if db_config.temperature is not None else 0.7,
         max_tokens=db_config.max_tokens,
         is_default=db_config.is_default,
         is_active=db_config.is_active,
@@ -288,12 +286,12 @@ def update_configuration(
     return LLMConfig(
         id=str(db_config.id),
         user_id=str(db_config.user_id) if db_config.user_id else None,
-        provider=db_config.provider,
+        provider=LLMProvider(db_config.provider),
         api_key=db_config.api_key,
         api_url=db_config.api_url,
         bearer_token=db_config.bearer_token,
         model_name=db_config.model_name,
-        temperature=db_config.temperature,
+        temperature=db_config.temperature if db_config.temperature is not None else 0.7,
         max_tokens=db_config.max_tokens,
         is_default=db_config.is_default,
         is_active=db_config.is_active,

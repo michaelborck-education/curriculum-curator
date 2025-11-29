@@ -5,11 +5,13 @@ Login attempt model for account security and lockout tracking
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Self
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, or_
+from sqlalchemy import Integer, String, func, or_
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
 
 
 class LoginAttemptType(str, Enum):
@@ -27,34 +29,36 @@ class LoginAttempt(Base):
 
     __tablename__ = "login_attempts"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-
-    # User identification (email used for login attempts)
-    email = Column(String(255), nullable=False, index=True)
-    ip_address = Column(String(45), nullable=False, index=True)  # Support IPv6
-    user_agent = Column(String(500), nullable=True)
-
-    # Attempt tracking
-    attempt_type = Column(
-        String(30), nullable=False, index=True
-    )  # LoginAttemptType enum
-    failed_attempts = Column(Integer, default=0, nullable=False)
-    consecutive_failures = Column(Integer, default=0, nullable=False)
-
-    # Lockout management
-    is_locked = Column(Boolean, default=False, nullable=False, index=True)
-    locked_until = Column(DateTime, nullable=True, index=True)
-    lockout_reason = Column(String(200), nullable=True)
-
-    # Timing
-    first_attempt = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_attempt = Column(DateTime, default=datetime.utcnow, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
     )
 
-    def __repr__(self):
+    # User identification (email used for login attempts)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    ip_address: Mapped[str] = mapped_column(String(45), index=True)  # Support IPv6
+    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Attempt tracking
+    attempt_type: Mapped[str] = mapped_column(
+        String(30), index=True
+    )  # LoginAttemptType enum
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Lockout management
+    is_locked: Mapped[bool] = mapped_column(default=False, index=True)
+    locked_until: Mapped[datetime | None] = mapped_column(nullable=True, index=True)
+    lockout_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Timing
+    first_attempt: Mapped[datetime] = mapped_column(default=func.now())
+    last_attempt: Mapped[datetime] = mapped_column(default=func.now())
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
         return f"<LoginAttempt(email='{self.email}', ip='{self.ip_address}', failures={self.failed_attempts}, locked={self.is_locked})>"
 
     @property
@@ -77,7 +81,7 @@ class LoginAttempt(Base):
         """Get time since last attempt"""
         return datetime.utcnow() - self.last_attempt
 
-    def record_success(self):
+    def record_success(self) -> None:
         """Record successful login and reset failure counters"""
         self.attempt_type = LoginAttemptType.LOGIN_SUCCESS.value
         self.failed_attempts = 0
@@ -88,28 +92,29 @@ class LoginAttempt(Base):
         self.last_attempt = datetime.utcnow()
         self.updated_at = datetime.utcnow()
 
-    def record_failure(self, reason: str = "Invalid credentials"):
+    def record_failure(self, reason: str = "Invalid credentials") -> None:
         """Record failed login attempt and apply lockout if needed"""
         self.attempt_type = LoginAttemptType.LOGIN_FAILED.value
-        self.failed_attempts += 1
-        self.consecutive_failures += 1
+        self.failed_attempts = int(self.failed_attempts) + 1
+        self.consecutive_failures = int(self.consecutive_failures) + 1
         self.last_attempt = datetime.utcnow()
         self.updated_at = datetime.utcnow()
 
         # Apply progressive lockout based on consecutive failures
-        if self.consecutive_failures >= 10:
+        consecutive = int(self.consecutive_failures)
+        if consecutive >= 10:
             # 10+ failures: 24 hour lockout
             self.apply_lockout(hours=24, reason=f"Excessive login attempts: {reason}")
-        elif self.consecutive_failures >= 7:
+        elif consecutive >= 7:
             # 7-9 failures: 4 hour lockout
             self.apply_lockout(hours=4, reason=f"Multiple failed attempts: {reason}")
-        elif self.consecutive_failures >= 5:
+        elif consecutive >= 5:
             # 5-6 failures: 30 minute lockout
             self.apply_lockout(minutes=30, reason=f"Failed login attempts: {reason}")
 
     def apply_lockout(
         self, minutes: int = 0, hours: int = 0, reason: str | None = None
-    ):
+    ) -> None:
         """Apply account lockout for specified duration"""
         lockout_duration = timedelta(minutes=minutes, hours=hours)
         self.is_locked = True
@@ -118,28 +123,29 @@ class LoginAttempt(Base):
         self.attempt_type = LoginAttemptType.ACCOUNT_LOCKED.value
         self.updated_at = datetime.utcnow()
 
-    def unlock_account(self, reason: str = "Manual unlock"):
+    def unlock_account(self, reason: str = "Manual unlock") -> None:
         """Manually unlock account"""
         self.is_locked = False
         self.locked_until = None
-        self.lockout_reason = None
         self.consecutive_failures = 0
         self.lockout_reason = f"Unlocked: {reason}"
         self.updated_at = datetime.utcnow()
 
     @classmethod
-    def cleanup_old_attempts(cls, db_session, days_old: int = 30):
+    def cleanup_old_attempts(cls, db_session: Session, days_old: int = 30) -> int:
         """Clean up old login attempt records"""
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
         return (
             db_session.query(cls)
             .filter(cls.created_at < cutoff_date)
-            .filter(~cls.is_locked)  # Don't delete locked accounts
+            .filter(cls.is_locked == False)  # noqa: E712 - SQLAlchemy syntax
             .delete(synchronize_session=False)
         )
 
     @classmethod
-    def get_or_create_for_email_ip(cls, db_session, email: str, ip_address: str):
+    def get_or_create_for_email_ip(
+        cls, db_session: Session, email: str, ip_address: str
+    ) -> "LoginAttempt":
         """Get or create login attempt record for email/IP combination"""
         # First try to find existing record
         attempt = (
@@ -169,7 +175,7 @@ class LoginAttempt(Base):
     @classmethod
     def is_ip_rate_limited(
         cls,
-        db_session,
+        db_session: Session,
         ip_address: str,
         max_attempts: int = 20,
         window_minutes: int = 15,
@@ -187,7 +193,9 @@ class LoginAttempt(Base):
         return attempt_count >= max_attempts
 
     @classmethod
-    def get_recent_suspicious_activity(cls, db_session, hours: int = 24):
+    def get_recent_suspicious_activity(
+        cls, db_session: Session, hours: int = 24
+    ) -> list[Self]:
         """Get recent suspicious activity for monitoring"""
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
 
@@ -197,7 +205,7 @@ class LoginAttempt(Base):
             .filter(
                 or_(
                     cls.consecutive_failures >= 3,
-                    cls.is_locked,
+                    cls.is_locked == True,  # noqa: E712 - SQLAlchemy syntax
                     cls.attempt_type == LoginAttemptType.SUSPICIOUS_ACTIVITY.value,
                 )
             )

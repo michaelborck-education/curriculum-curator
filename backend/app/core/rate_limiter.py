@@ -41,7 +41,7 @@ def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
     Custom rate limit exceeded handler
     Returns user-friendly JSON response
     """
-    retry_after = exc.retry_after if hasattr(exc, "retry_after") else 60
+    retry_after = getattr(exc, "retry_after", 60)
 
     return JSONResponse(
         status_code=429,

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DISABLE_RATE_LIMIT: bool = False
 
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

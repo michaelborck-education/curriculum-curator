@@ -5,21 +5,20 @@ Learning outcome models for structured curriculum alignment
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any, Self
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Table,
-    Text,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, Table, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.content import Content
+    from app.models.unit import Unit
+    from app.models.unit_outline import UnitOutline
+    from app.models.user import User
+    from app.models.weekly_topic import WeeklyTopic
 
 
 class OutcomeType(str, Enum):
@@ -60,88 +59,104 @@ class UnitLearningOutcome(Base):
 
     __tablename__ = "unit_learning_outcomes"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Links
-    unit_id = Column(GUID(), ForeignKey("units.id"), nullable=True, index=True)
-    unit_outline_id = Column(
+    unit_id: Mapped[str | None] = mapped_column(
+        GUID(), ForeignKey("units.id"), nullable=True, index=True
+    )
+    unit_outline_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("unit_outlines.id"), nullable=True, index=True
     )
-    weekly_topic_id = Column(
+    weekly_topic_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("weekly_topics.id"), nullable=True, index=True
     )
 
     # Outcome details
-    outcome_type = Column(String(10), nullable=False, index=True)  # CLO, ULO, WLO
-    outcome_code = Column(String(20), nullable=True)  # e.g., "CLO1", "ULO2.3"
-    outcome_text = Column(Text, nullable=False)
+    outcome_type: Mapped[str] = mapped_column(String(10), index=True)  # CLO, ULO, WLO
+    outcome_code: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # e.g., "CLO1", "ULO2.3"
+    outcome_text: Mapped[str] = mapped_column(Text)
 
     # Bloom's taxonomy
-    bloom_level = Column(String(20), nullable=False)
-    cognitive_processes = Column(Text, nullable=True)  # Specific verbs used
+    bloom_level: Mapped[str] = mapped_column(String(20))
+    cognitive_processes: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Specific verbs used
 
     # Sequencing and hierarchy
-    sequence_order = Column(Integer, default=0, nullable=False)
-    parent_outcome_id = Column(
+    sequence_order: Mapped[int] = mapped_column(Integer, default=0)
+    parent_outcome_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("unit_learning_outcomes.id"), nullable=True
     )
 
     # Alignment and mapping
-    graduate_attribute_ids = Column(Text, nullable=True)  # Comma-separated IDs
-    assessment_methods = Column(Text, nullable=True)  # How it's assessed
+    graduate_attribute_ids: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Comma-separated IDs
+    assessment_methods: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # How it's assessed
 
     # Measurability
-    is_measurable = Column(Boolean, default=True, nullable=False)
-    success_criteria = Column(Text, nullable=True)
+    is_measurable: Mapped[bool] = mapped_column(default=True)
+    success_criteria: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
-    created_by_id = Column(GUID(), ForeignKey("users.id"), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    created_by_id: Mapped[str] = mapped_column(GUID(), ForeignKey("users.id"))
+    is_active: Mapped[bool] = mapped_column(default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
 
     # Relationships
-    unit = relationship("Unit", back_populates="learning_outcomes")
-    unit_outline = relationship("UnitOutline", back_populates="learning_outcomes")
-    weekly_topic = relationship("WeeklyTopic", back_populates="learning_outcomes")
-    created_by = relationship("User", foreign_keys=[created_by_id])
+    unit: Mapped["Unit | None"] = relationship(back_populates="learning_outcomes")
+    unit_outline: Mapped["UnitOutline | None"] = relationship(
+        back_populates="learning_outcomes"
+    )
+    weekly_topic: Mapped["WeeklyTopic | None"] = relationship(
+        back_populates="learning_outcomes"
+    )
+    created_by: Mapped["User"] = relationship(foreign_keys=[created_by_id])
 
     # Self-referential relationship for hierarchy
-    parent_outcome = relationship(
-        "UnitLearningOutcome",
+    parent_outcome: Mapped["UnitLearningOutcome | None"] = relationship(
         remote_side=[id],
         backref="child_outcomes",
     )
 
     # Many-to-many with content
-    contents = relationship(
-        "Content", secondary=content_outcomes, back_populates="learning_outcomes"
+    contents: Mapped[list["Content"]] = relationship(
+        secondary=content_outcomes, back_populates="learning_outcomes"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<UnitLearningOutcome(id={self.id}, type='{self.outcome_type}', code='{self.outcome_code}', bloom='{self.bloom_level}')>"
 
     @property
     def full_code(self) -> str:
         """Get full outcome code with type"""
-        return f"{self.outcome_code or self.outcome_type.upper()}"
+        code = self.outcome_code or str(self.outcome_type).upper()
+        return str(code)
 
     @property
     def bloom_level_numeric(self) -> int:
         """Get numeric Bloom's level for sorting"""
         levels = {
-            BloomLevel.REMEMBER: 1,
-            BloomLevel.UNDERSTAND: 2,
-            BloomLevel.APPLY: 3,
-            BloomLevel.ANALYZE: 4,
-            BloomLevel.EVALUATE: 5,
-            BloomLevel.CREATE: 6,
+            BloomLevel.REMEMBER.value: 1,
+            BloomLevel.UNDERSTAND.value: 2,
+            BloomLevel.APPLY.value: 3,
+            BloomLevel.ANALYZE.value: 4,
+            BloomLevel.EVALUATE.value: 5,
+            BloomLevel.CREATE.value: 6,
         }
-        return levels.get(self.bloom_level, 0)
+        return levels.get(str(self.bloom_level), 0)
 
     def is_aligned_with_content(self) -> bool:
         """Check if outcome has aligned content"""
@@ -154,10 +169,12 @@ class UnitLearningOutcome(Base):
         return (len(self.contents) / total_content_items) * 100
 
     @classmethod
-    def create_from_text(cls, text: str, outcome_type: str = OutcomeType.ULO):
+    def create_from_text(
+        cls, text: str, outcome_type: str = OutcomeType.ULO.value
+    ) -> Self:
         """Create outcome from text with automatic Bloom's level detection"""
         # Common Bloom's taxonomy verbs
-        bloom_verbs = {
+        bloom_verbs: dict[BloomLevel, list[str]] = {
             BloomLevel.REMEMBER: [
                 "identify",
                 "list",
@@ -218,5 +235,50 @@ class UnitLearningOutcome(Base):
         return cls(
             outcome_text=text,
             outcome_type=outcome_type,
-            bloom_level=detected_level,
+            bloom_level=detected_level.value,
         )
+
+
+# Association table for Assessment-ULO mapping
+assessment_ulo_mappings = Table(
+    "assessment_ulo_mappings",
+    Base.metadata,
+    Column("assessment_id", GUID(), ForeignKey("assessments.id", ondelete="CASCADE")),
+    Column(
+        "ulo_id",
+        GUID(),
+        ForeignKey("unit_learning_outcomes.id", ondelete="CASCADE"),
+    ),
+)
+
+
+class AssessmentLearningOutcome(Base):
+    """Assessment-specific learning outcomes (for detailed assessment criteria)"""
+
+    __tablename__ = "assessment_learning_outcomes"
+
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+
+    # Links
+    assessment_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("assessments.id"), nullable=False, index=True
+    )
+
+    # Outcome details
+    description: Mapped[str] = mapped_column(Text)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    assessment: Mapped["Any"] = relationship(back_populates="assessment_outcomes")
+
+    def __repr__(self) -> str:
+        desc_preview = str(self.description)[:50] if self.description else ""
+        return f"<AssessmentLearningOutcome(id={self.id}, assessment_id={self.assessment_id}, desc='{desc_preview}...')>"

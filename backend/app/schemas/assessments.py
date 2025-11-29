@@ -94,8 +94,8 @@ class AssessmentResponse(AssessmentBase):
     id: str
     unit_id: str
     rubric: dict[str, Any] | None
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

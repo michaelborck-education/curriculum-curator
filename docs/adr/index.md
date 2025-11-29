@@ -27,6 +27,11 @@ An Architecture Decision Record captures an important architectural decision mad
 - [ADR-0010: Security Hardening](0010-security-hardening.md) - Comprehensive security measures
 - [ADR-0011: Deployment Best Practices](0011-deployment-best-practices.md) - Production deployment guidelines
 
+### Infrastructure & Integration
+- [ADR-0012: Framework Migration FastHTML to NiceGUI](0012-framework-migration-fasthtml-to-nicegui.md) - Frontend framework change
+- [ADR-0013: Git-Backed Content Storage](0013-git-backed-content-storage.md) - Version-controlled content
+- [ADR-0014: LiteLLM for Unified LLM Abstraction](0014-litellm-unified-llm-abstraction.md) - Unified LLM provider interface
+
 ## ADR Status
 
 - **Accepted**: The decision is accepted and implemented

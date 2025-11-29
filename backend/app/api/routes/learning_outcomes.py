@@ -42,12 +42,12 @@ async def create_ulo(
             db=db,
             unit_id=unit_id,
             ulo_data=ulo_data,
-            user_id=current_user.id,
+            user_id=UUID(current_user.id),
         )
         return ULOResponse(
             id=str(ulo.id),
             unit_id=str(ulo.unit_id),
-            code=ulo.outcome_code,
+            code=ulo.outcome_code or "",
             description=ulo.outcome_text,
             bloom_level=ulo.bloom_level,
             order_index=ulo.sequence_order,
@@ -80,7 +80,7 @@ async def get_unit_ulos(
         ulo_response = ULOWithMappings(
             id=str(ulo.id),
             unit_id=str(ulo.unit_id),
-            code=ulo.outcome_code,
+            code=ulo.outcome_code or "",
             description=ulo.outcome_text,
             bloom_level=ulo.bloom_level,
             order_index=ulo.sequence_order,
@@ -112,7 +112,7 @@ async def get_ulo(
     return ULOResponse(
         id=str(ulo.id),
         unit_id=str(ulo.unit_id),
-        code=ulo.outcome_code,
+        code=ulo.outcome_code or "",
         description=ulo.outcome_text,
         bloom_level=ulo.bloom_level,
         order_index=ulo.sequence_order,
@@ -145,7 +145,7 @@ async def update_ulo(
         return ULOResponse(
             id=str(ulo.id),
             unit_id=str(ulo.unit_id),
-            code=ulo.outcome_code,
+            code=ulo.outcome_code or "",
             description=ulo.outcome_text,
             bloom_level=ulo.bloom_level,
             order_index=ulo.sequence_order,
@@ -202,7 +202,7 @@ async def reorder_ulos(
             ULOResponse(
                 id=str(ulo.id),
                 unit_id=str(ulo.unit_id),
-                code=ulo.outcome_code,
+                code=ulo.outcome_code or "",
                 description=ulo.outcome_text,
                 bloom_level=ulo.bloom_level,
                 order_index=ulo.sequence_order,
@@ -231,14 +231,14 @@ async def bulk_create_ulos(
             db=db,
             unit_id=unit_id,
             bulk_data=bulk_data,
-            user_id=current_user.id,
+            user_id=UUID(current_user.id),
         )
 
         return [
             ULOResponse(
                 id=str(ulo.id),
                 unit_id=str(ulo.unit_id),
-                code=ulo.outcome_code,
+                code=ulo.outcome_code or "",
                 description=ulo.outcome_text,
                 bloom_level=ulo.bloom_level,
                 order_index=ulo.sequence_order,

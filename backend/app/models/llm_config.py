@@ -4,22 +4,16 @@ LLM configuration models for user and system-wide settings
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import (
-    JSON,
-    Boolean,
-    Column,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class LLMConfiguration(Base):
@@ -27,37 +21,45 @@ class LLMConfiguration(Base):
 
     __tablename__ = "llm_configurations"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+    user_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
     # Provider configuration
-    provider = Column(String(50), nullable=False)
-    api_key = Column(Text, nullable=True)  # Encrypted in production
-    api_url = Column(String(500), nullable=True)
-    bearer_token = Column(Text, nullable=True)  # For Ollama auth
+    provider: Mapped[str] = mapped_column(String(50))
+    api_key: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Encrypted in production
+    api_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    bearer_token: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # For Ollama auth
 
     # Model settings
-    model_name = Column(String(100), nullable=True)
-    temperature = Column(Float, default=0.7)
-    max_tokens = Column(Integer, nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    temperature: Mapped[float | None] = mapped_column(Float, default=0.7, nullable=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Additional settings
-    is_default = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
-    settings = Column(JSON, default=dict)  # For provider-specific settings
+    is_default: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    settings: Mapped[dict[str, Any] | None] = mapped_column(
+        type_=None, default=dict
+    )  # For provider-specific settings
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
 
     # Relationships
-    user = relationship("User", back_populates="llm_configs")
+    user: Mapped["User | None"] = relationship(back_populates="llm_configs")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<LLMConfiguration(id={self.id}, provider={self.provider}, user_id={self.user_id})>"
 
 
@@ -66,32 +68,38 @@ class TokenUsageLog(Base):
 
     __tablename__ = "token_usage_logs"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(
-        GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
     # Usage details
-    prompt_tokens = Column(Integer, nullable=False)
-    completion_tokens = Column(Integer, nullable=False)
-    total_tokens = Column(Integer, nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer)
+    completion_tokens: Mapped[int] = mapped_column(Integer)
+    total_tokens: Mapped[int] = mapped_column(Integer)
 
     # Model and provider info
-    provider = Column(String(50), nullable=False)
-    model = Column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50))
+    model: Mapped[str] = mapped_column(String(100))
 
     # Cost tracking
-    cost_estimate = Column(Float, nullable=True)
+    cost_estimate: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Context
-    feature = Column(String(100), nullable=True)  # Which feature used tokens
-    usage_metadata = Column(JSON, default=dict)
+    feature: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # Which feature used tokens
+    usage_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        type_=None, default=dict
+    )
 
     # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=func.now(), index=True)
 
     # Relationships
-    user = relationship("User", back_populates="token_usage")
+    user: Mapped["User"] = relationship(back_populates="token_usage")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<TokenUsageLog(id={self.id}, user_id={self.user_id}, total_tokens={self.total_tokens})>"

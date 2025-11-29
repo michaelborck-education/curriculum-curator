@@ -8,6 +8,7 @@ from app.api import deps
 from app.models import User
 from app.schemas.llm import (
     ChatCompletionRequest,
+    ChatMessage,
     ContentEnhanceRequest,
     ContentTranslationRequest,
     FeedbackGenerationRequest,
@@ -365,8 +366,8 @@ Check for:
 Return findings as JSON with keys: issues, suggestions, score"""
 
     messages = [
-        {"role": "system", "content": "You are an expert content validator."},
-        {"role": "user", "content": prompt},
+        ChatMessage(role="system", content="You are an expert content validator."),
+        ChatMessage(role="user", content=prompt),
     ]
 
     try:

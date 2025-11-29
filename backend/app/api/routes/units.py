@@ -116,7 +116,7 @@ async def create_unit(
     """
     Create a new unit
     """
-    logger.info(f"[CREATE_UNIT] === ROUTE HANDLER CALLED ===")
+    logger.info("[CREATE_UNIT] === ROUTE HANDLER CALLED ===")
     logger.info(f"[CREATE_UNIT] User: {current_user.email}")
     logger.info(f"[CREATE_UNIT] Unit data received: {unit_data.model_dump()}")
 

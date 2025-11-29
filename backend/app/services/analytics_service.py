@@ -368,7 +368,10 @@ class AnalyticsService:
 
             if materials or assessments:
                 total_duration = sum(m.duration_minutes or 0 for m in materials)
-                assessment_duration = sum(a.duration or 0 for a in assessments)
+                assessment_duration = sum(
+                    int(a.duration) if a.duration and a.duration.isdigit() else 0
+                    for a in assessments
+                )
 
                 workload.append(
                     {

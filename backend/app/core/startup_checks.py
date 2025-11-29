@@ -4,7 +4,7 @@ Startup checks and database cleanup
 
 import logging
 
-from pydantic import EmailStr, ValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -24,8 +24,10 @@ def validate_and_clean_emails(db: Session) -> None:
         for user in users:
             try:
                 # Test if email passes Pydantic validation
-                # Simply create an EmailStr instance to validate
-                EmailStr(user.email)
+                # Use validate_email to validate the email
+                from pydantic import validate_email  # noqa: PLC0415
+
+                validate_email(user.email)
             except (ValidationError, ValueError, TypeError) as e:
                 logger.warning(f"Invalid email found: {user.email} - {e}")
                 invalid_users.append(user)

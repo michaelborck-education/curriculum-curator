@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.models import User, UserRole
+from app.models import Content, Unit, User, UserRole
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -85,11 +85,15 @@ def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     """Get current user and verify admin role."""
-    logger.info(f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'")
+    logger.info(
+        f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'"
+    )
 
     # Re-enable admin check
     if current_user.role != UserRole.ADMIN.value:
-        logger.error(f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'")
+        logger.error(
+            f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
@@ -111,3 +115,70 @@ def get_user_or_admin_override(
 
     # User can only access their own resources
     return str(current_user.id) == str(resource_owner_id)
+
+
+# =============================================================================
+# Resource Ownership Dependencies
+# =============================================================================
+
+
+def get_user_unit(
+    unit_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> Unit:
+    """
+    Get a unit that belongs to the current user.
+    Raises 404 if unit not found or user doesn't own it.
+    """
+    unit = (
+        db.query(Unit)
+        .filter(Unit.id == unit_id)
+        .filter(Unit.owner_id == current_user.id)
+        .first()
+    )
+
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found or access denied",
+        )
+
+    return unit
+
+
+def get_user_content(
+    content_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> Content:
+    """
+    Get content that belongs to the current user (via unit ownership).
+    Raises 404 if content not found or user doesn't own the parent unit.
+    """
+    content = (
+        db.query(Content)
+        .join(Unit, Content.unit_id == Unit.id)
+        .filter(Content.id == content_id)
+        .filter(Unit.owner_id == current_user.id)
+        .first()
+    )
+
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Content not found or access denied",
+        )
+
+    return content
+
+
+def get_user_unit_by_path(
+    unit_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> Unit:
+    """
+    Alias for get_user_unit - use when unit_id comes from path parameter.
+    """
+    return get_user_unit(unit_id, db, current_user)

@@ -181,7 +181,8 @@ class PasswordValidator:
 
         # Check for passwords with numbers/symbols just at the end
         if re.match(r"^[a-zA-Z]+[0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?]+$", password):
-            word_part = re.match(r"^[a-zA-Z]+", password_lower).group()
+            word_match = re.match(r"^[a-zA-Z]+", password_lower)
+            word_part = word_match.group() if word_match else ""
             if len(word_part) >= 4 and word_part in COMMON_PASSWORDS:
                 return True
 

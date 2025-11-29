@@ -2,15 +2,21 @@
 Quiz question model for detailed quiz support
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.content import Content
 
 
 class QuestionType(str, Enum):
@@ -31,48 +37,71 @@ class QuizQuestion(Base):
 
     __tablename__ = "quiz_questions"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Basic question information
-    content_id = Column(GUID(), ForeignKey("contents.id"), nullable=False, index=True)
-    question_text = Column(Text, nullable=False)  # Markdown format
-    question_type = Column(String(20), nullable=False, index=True)  # QuestionType enum
-    order_index = Column(Integer, default=0, nullable=False)
+    content_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("contents.id"), nullable=False, index=True
+    )
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)  # Markdown format
+    question_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, index=True
+    )  # QuestionType enum
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Question options and answers (JSON format for flexibility)
-    options = Column(JSON, nullable=True)  # List of options for MC questions
-    correct_answers = Column(JSON, nullable=True)  # Correct answer(s)
-    answer_explanation = Column(Text, nullable=True)  # Explanation in markdown
+    options: Mapped[list[Any] | None] = mapped_column(
+        JSON, default=None
+    )  # List of options for MC questions
+    correct_answers: Mapped[list[Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Correct answer(s)
+    answer_explanation: Mapped[str | None] = mapped_column(
+        Text, default=None
+    )  # Explanation in markdown
 
     # Grading and feedback
-    points = Column(Float, default=1.0, nullable=False)
-    partial_credit = Column(JSON, nullable=True)  # Partial credit rules
-    feedback = Column(JSON, nullable=True)  # Feedback for different answers
+    points: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    partial_credit: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Partial credit rules
+    feedback: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Feedback for different answers
 
     # Educational metadata
-    difficulty_level = Column(String(20), nullable=True)
-    bloom_level = Column(String(20), nullable=True)  # Associated Bloom's level
-    learning_objective = Column(Text, nullable=True)
+    difficulty_level: Mapped[str | None] = mapped_column(String(20), default=None)
+    bloom_level: Mapped[str | None] = mapped_column(
+        String(20), default=None
+    )  # Associated Bloom's level
+    learning_objective: Mapped[str | None] = mapped_column(Text, default=None)
 
     # Additional metadata
-    question_metadata = Column(JSON, nullable=True)  # Custom fields, settings
+    question_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Custom fields, settings
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now(), nullable=False
     )
 
     # Relationships
-    content = relationship("Content", back_populates="quiz_questions")
+    content: Mapped[Content] = relationship("Content", back_populates="quiz_questions")
 
-    def __repr__(self):
-        return f"<QuizQuestion(id={self.id}, type='{self.question_type}', text='{self.question_text[:50]}...')>"
+    def __repr__(self) -> str:
+        question_text = str(self.question_text)
+        return f"<QuizQuestion(id={self.id}, type='{self.question_type}', text='{question_text[:50]}...')>"
 
     @property
     def is_multiple_choice(self) -> bool:
         """Check if question is multiple choice"""
-        return self.question_type == QuestionType.MULTIPLE_CHOICE.value
+        return str(self.question_type) == QuestionType.MULTIPLE_CHOICE.value
 
     @property
     def is_open_ended(self) -> bool:
@@ -83,17 +112,18 @@ class QuizQuestion(Base):
             QuestionType.CASE_STUDY.value,
             QuestionType.SCENARIO.value,
         ]
-        return self.question_type in open_ended_types
+        return str(self.question_type) in open_ended_types
 
     @property
     def has_partial_credit(self) -> bool:
         """Check if question supports partial credit"""
-        partial_credit = self.partial_credit  # type: ignore[assignment]
-        return partial_credit is not None and len(partial_credit) > 0  # type: ignore[arg-type]
+        partial_credit = self.partial_credit
+        return partial_credit is not None and len(partial_credit) > 0
 
     @property
     def option_count(self) -> int:
         """Get number of options for multiple choice questions"""
-        if not self.options or not isinstance(self.options, list):
+        options = self.options
+        if not options or not isinstance(options, list):
             return 0
-        return len(self.options)
+        return len(options)

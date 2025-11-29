@@ -5,12 +5,17 @@ Chat models for "Chat with Course" functionality
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.unit import Unit
+    from app.models.user import User
 
 
 class ChatRole(str, Enum):
@@ -35,39 +40,51 @@ class ChatSession(Base):
 
     __tablename__ = "chat_sessions"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Session information
-    unit_id = Column(GUID(), ForeignKey("units.id"), nullable=False, index=True)
-    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
-    title = Column(String(500), nullable=False)
+    unit_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("units.id"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("users.id"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(500))
 
     # Context configuration
-    context_scope = Column(String(20), default=ContextScope.UNIT.value, nullable=False)
-    context_content_ids = Column(
-        JSON, nullable=True
+    context_scope: Mapped[str] = mapped_column(
+        String(20), default=ContextScope.UNIT.value
+    )
+    context_content_ids: Mapped[list[str] | None] = mapped_column(
+        nullable=True, type_=None
     )  # Specific content IDs for context
-    context_metadata = Column(JSON, nullable=True)  # Additional context information
+    context_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        nullable=True, type_=None
+    )  # Additional context information
 
     # Session settings
-    llm_model = Column(String(100), nullable=True)  # Specific model used
-    system_prompt = Column(Text, nullable=True)  # Custom system prompt
+    llm_model: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # Specific model used
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
-    last_activity_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_activity_at: Mapped[datetime] = mapped_column(default=func.now())
 
     # Relationships
-    unit = relationship("Unit", back_populates="chat_sessions")
-    user = relationship("User")
-    messages = relationship(
-        "ChatMessage", back_populates="session", cascade="all, delete-orphan"
+    unit: Mapped["Unit"] = relationship(back_populates="chat_sessions")
+    user: Mapped["User"] = relationship()
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<ChatSession(id={self.id}, title='{self.title}', unit_id={self.unit_id})>"
         )
@@ -75,17 +92,17 @@ class ChatSession(Base):
     @property
     def message_count(self) -> int:
         """Get total number of messages in session"""
-        return len(self.messages)
+        return len(self.messages) if self.messages else 0
 
     @property
     def is_unit_context(self) -> bool:
         """Check if session uses full unit context"""
-        return self.context_scope == ContextScope.UNIT.value
+        return str(self.context_scope) == ContextScope.UNIT.value
 
     @property
     def is_content_specific(self) -> bool:
         """Check if session is content-specific"""
-        return self.context_scope == ContextScope.CONTENT.value
+        return str(self.context_scope) == ContextScope.CONTENT.value
 
     @property
     def has_recent_activity(self) -> bool:
@@ -101,51 +118,58 @@ class ChatMessage(Base):
 
     __tablename__ = "chat_messages"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Message information
-    session_id = Column(
+    session_id: Mapped[str] = mapped_column(
         GUID(), ForeignKey("chat_sessions.id"), nullable=False, index=True
     )
-    role = Column(String(20), nullable=False, index=True)  # ChatRole enum
-    content = Column(Text, nullable=False)  # Message content in markdown
+    role: Mapped[str] = mapped_column(String(20), index=True)  # ChatRole enum
+    content: Mapped[str] = mapped_column(Text)  # Message content in markdown
 
     # Message metadata
-    message_metadata = Column(JSON, nullable=True)  # Token counts, model info, etc.
-    context_used = Column(
-        JSON, nullable=True
+    message_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        nullable=True, type_=None
+    )  # Token counts, model info, etc.
+    context_used: Mapped[dict[str, Any] | None] = mapped_column(
+        nullable=True, type_=None
     )  # Context information used for this message
 
     # Generation information (for assistant messages)
-    generation_metadata = Column(JSON, nullable=True)  # LLM generation details
+    generation_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        nullable=True, type_=None
+    )  # LLM generation details
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
 
     # Relationships
-    session = relationship("ChatSession", back_populates="messages")
+    session: Mapped["ChatSession"] = relationship(back_populates="messages")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ChatMessage(id={self.id}, role='{self.role}', session_id={self.session_id})>"
 
     @property
     def is_user_message(self) -> bool:
         """Check if message is from user"""
-        return self.role == ChatRole.USER.value
+        return str(self.role) == ChatRole.USER.value
 
     @property
     def is_assistant_message(self) -> bool:
         """Check if message is from assistant"""
-        return self.role == ChatRole.ASSISTANT.value
+        return str(self.role) == ChatRole.ASSISTANT.value
 
     @property
     def is_system_message(self) -> bool:
         """Check if message is system message"""
-        return self.role == ChatRole.SYSTEM.value
+        return str(self.role) == ChatRole.SYSTEM.value
 
     @property
     def content_preview(self) -> str:
         """Get truncated content for preview"""
-        if len(self.content) <= 100:
-            return self.content
-        return self.content[:97] + "..."
+        content_str = str(self.content)
+        if len(content_str) <= 100:
+            return content_str
+        return content_str[:97] + "..."

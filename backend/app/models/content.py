@@ -5,20 +5,22 @@ Content model for unit materials (lectures, worksheets, etc.)
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import (
-    JSON,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.content_quarto_settings import ContentQuartoSettings
+    from app.models.content_version import ContentVersion
+    from app.models.generation_history import GenerationHistory
+    from app.models.learning_outcome import UnitLearningOutcome
+    from app.models.quiz_question import QuizQuestion
+    from app.models.unit import Unit
+    from app.models.validation_result import ValidationResult
 
 
 class ContentCategory(str, Enum):
@@ -63,109 +65,113 @@ class Content(Base):
 
     __tablename__ = "contents"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    # Primary key
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Basic content information
-    title = Column(String(500), nullable=False, index=True)
-    type = Column(String(20), nullable=False, index=True)  # ContentType enum
-    status = Column(
-        String(20), default=ContentStatus.DRAFT.value, nullable=False, index=True
+    title: Mapped[str] = mapped_column(String(500), index=True)
+    type: Mapped[str] = mapped_column(String(20), index=True)  # ContentType enum
+    status: Mapped[str] = mapped_column(
+        String(20), default=ContentStatus.DRAFT.value, index=True
     )
 
     # Content data (stored as Markdown)
-    content_markdown = Column(Text, nullable=True)  # Source markdown
-    content_html = Column(Text, nullable=True)  # Generated HTML for display
-    summary = Column(Text, nullable=True)  # Auto-generated summary
+    content_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Hierarchical organization
-    unit_id = Column(GUID(), ForeignKey("units.id"), nullable=False, index=True)
-    parent_content_id = Column(
+    unit_id: Mapped[str] = mapped_column(GUID(), ForeignKey("units.id"), index=True)
+    parent_content_id: Mapped[str | None] = mapped_column(
         GUID(), ForeignKey("contents.id"), nullable=True, index=True
     )
-    order_index = Column(Integer, default=0, nullable=False)
+    order_index: Mapped[int] = mapped_column(default=0)
 
     # Weekly schedule mapping
-    week_number = Column(Integer, nullable=True, index=True)  # Week in course
-    content_category = Column(
-        String(20), default=ContentCategory.GENERAL.value, nullable=False
-    )  # pre/in/post class
+    week_number: Mapped[int | None] = mapped_column(nullable=True, index=True)
+    content_category: Mapped[str] = mapped_column(
+        String(20), default=ContentCategory.GENERAL.value
+    )
 
     # Educational metadata
-    learning_objectives = Column(JSON, nullable=True)  # List of objectives
-    estimated_duration_minutes = Column(Integer, nullable=True)
-    difficulty_level = Column(String(20), nullable=True)
-    prerequisites = Column(JSON, nullable=True)  # List of prerequisite content IDs
+    learning_objectives: Mapped[list[str] | None] = mapped_column(nullable=True)
+    estimated_duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    difficulty_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    prerequisites: Mapped[list[str] | None] = mapped_column(nullable=True)
 
     # Generation and validation metadata
-    generation_metadata = Column(JSON, nullable=True)  # LLM generation info
-    validation_metadata = Column(JSON, nullable=True)  # Plugin validation results
+    generation_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
+    validation_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
 
     # Additional metadata and settings
-    content_metadata = Column(JSON, nullable=True)  # Custom fields, settings
+    content_metadata: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
-    published_at = Column(DateTime, nullable=True)
-    archived_at = Column(DateTime, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Relationships
-    unit = relationship("Unit", back_populates="contents")
-    parent_content = relationship(
-        "Content", remote_side=[id], back_populates="child_contents"
+    unit: Mapped["Unit"] = relationship(back_populates="contents")
+    parent_content: Mapped["Content | None"] = relationship(
+        remote_side=[id], back_populates="child_contents"
     )
-    child_contents = relationship(
-        "Content", back_populates="parent_content", cascade="all, delete-orphan"
+    child_contents: Mapped[list["Content"]] = relationship(
+        back_populates="parent_content", cascade="all, delete-orphan"
     )
-    quarto_settings = relationship(
-        "ContentQuartoSettings", back_populates="content", uselist=False, cascade="all, delete-orphan"
+    quarto_settings: Mapped["ContentQuartoSettings | None"] = relationship(
+        back_populates="content",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
-    versions = relationship(
-        "ContentVersion", back_populates="content", cascade="all, delete-orphan"
+    versions: Mapped[list["ContentVersion"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
     )
-    quiz_questions = relationship(
-        "QuizQuestion", back_populates="content", cascade="all, delete-orphan"
+    quiz_questions: Mapped[list["QuizQuestion"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
     )
-    validation_results = relationship(
-        "ValidationResult", back_populates="content", cascade="all, delete-orphan"
+    validation_results: Mapped[list["ValidationResult"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
     )
-    generation_history = relationship(
-        "GenerationHistory", back_populates="content", cascade="all, delete-orphan"
+    generation_history: Mapped[list["GenerationHistory"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
     )
 
     # Many-to-many relationship with learning outcomes
-    # The association table is defined in learning_outcome.py
-    learning_outcomes = relationship(
-        "UnitLearningOutcome",
+    learning_outcomes: Mapped[list["UnitLearningOutcome"]] = relationship(
         secondary="content_outcomes",
         back_populates="contents",
-        overlaps="contents",  # Avoid warning about overlapping relationships
+        overlaps="contents",
     )
 
-    def __repr__(self):
-        return f"<Content(id={self.id}, type='{self.type}', title='{self.title[:50]}...', status='{self.status}')>"
+    def __repr__(self) -> str:
+        title_preview = str(self.title)[:50] if self.title else ""
+        return f"<Content(id={self.id}, type='{self.type}', title='{title_preview}...', status='{self.status}')>"
 
     @property
     def is_draft(self) -> bool:
         """Check if content is in draft status"""
-        return self.status == ContentStatus.DRAFT.value
+        return str(self.status) == ContentStatus.DRAFT.value
 
     @property
     def is_active(self) -> bool:
         """Check if content is active/published"""
-        return self.status == ContentStatus.ACTIVE.value
+        return str(self.status) == ContentStatus.ACTIVE.value
 
     @property
     def is_archived(self) -> bool:
         """Check if content is archived"""
-        return self.status == ContentStatus.ARCHIVED.value
+        return str(self.status) == ContentStatus.ARCHIVED.value
 
     @property
     def is_quiz(self) -> bool:
         """Check if content is a quiz type"""
-        return self.type in [
+        return str(self.type) in [
             ContentType.QUIZ.value,
             ContentType.SHORT_ANSWER.value,
             ContentType.MATCHING.value,

@@ -139,7 +139,8 @@ class BasicRemediator(RemediatorPlugin):
         # Fix heading level skips
         prev_level = 0
         for _i, (line_idx, heading) in enumerate(heading_lines):
-            level = len(re.match(r"^(#+)", heading).group(1))
+            match = re.match(r"^(#+)", heading)
+            level = len(match.group(1)) if match else 0
 
             if prev_level > 0 and level - prev_level > 1:
                 # Fix skip by adjusting level

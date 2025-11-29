@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.routing import APIRoute
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
@@ -77,7 +78,7 @@ app = FastAPI(
 
 # Add rate limiting to app
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
 # Add validation exception handler for debugging
@@ -170,51 +171,56 @@ app.add_middleware(
 # Critical routes first - auth should always load
 try:
     from app.api.routes import auth
+
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 except ImportError:
     logger.exception("Failed to load auth routes")
 
 try:
     from app.api.routes import admin
+
     app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 except ImportError as e:
     logger.warning(f"Failed to load admin routes: {e}")
 
 try:
     from app.api.routes import admin_config
+
     app.include_router(admin_config.router, prefix="/api/admin", tags=["admin-config"])
 except ImportError as e:
     logger.warning(f"Failed to load admin_config routes: {e}")
 
 try:
-    from app.api.routes import courses
-    app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
-except ImportError as e:
-    logger.warning(f"Failed to load courses routes: {e}")
-
-try:
     from app.api.routes import units
+
     app.include_router(units.router, prefix="/api/units", tags=["units"])
     logger.info("✅ Units routes loaded successfully")
     # Log all registered routes for debugging
     for route in units.router.routes:
-        if hasattr(route, 'methods'):
+        if isinstance(route, APIRoute) and route.methods:
             logger.info(f"  → {route.path} [{', '.join(route.methods)}]")
             # Log the actual endpoint function for POST routes
-            if 'POST' in route.methods:
+            if "POST" in route.methods:
                 logger.info(f"      Endpoint: {route.endpoint.__name__}")
-                logger.info(f"      Dependencies: {len(route.dependant.dependencies)} items")
+                if hasattr(route, "dependant") and hasattr(
+                    route.dependant, "dependencies"
+                ):
+                    logger.info(
+                        f"      Dependencies: {len(route.dependant.dependencies)} items"
+                    )
 except ImportError:
     logger.exception("❌ Failed to load units routes")
 
 try:
     from app.api.routes import unit_structure
+
     app.include_router(unit_structure.router, prefix="/api", tags=["unit-structure"])
 except ImportError as e:
     logger.warning(f"Failed to load unit_structure routes: {e}")
 
 try:
     from app.api.routes import learning_outcomes
+
     app.include_router(
         learning_outcomes.router, prefix="/api/outcomes", tags=["learning-outcomes"]
     )
@@ -223,12 +229,14 @@ except ImportError as e:
 
 try:
     from app.api.routes import materials
+
     app.include_router(materials.router, prefix="/api/materials", tags=["materials"])
 except ImportError as e:
     logger.warning(f"Failed to load materials routes: {e}")
 
 try:
     from app.api.routes import assessments
+
     app.include_router(
         assessments.router, prefix="/api/assessments", tags=["assessments"]
     )
@@ -237,36 +245,42 @@ except ImportError as e:
 
 try:
     from app.api.routes import analytics
+
     app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 except ImportError as e:
     logger.warning(f"Failed to load analytics routes: {e}")
 
 try:
     from app.api.routes import content
+
     app.include_router(content.router, prefix="/api/content", tags=["content"])
 except ImportError as e:
     logger.warning(f"Failed to load content routes: {e}")
 
 try:
     from app.api.routes import content_export
+
     app.include_router(content_export.router, prefix="/api", tags=["export"])
 except ImportError as e:
     logger.warning(f"Failed to load content_export routes: {e}")
 
 try:
     from app.api.routes import content_versions
+
     app.include_router(content_versions.router, prefix="/api", tags=["versions"])
 except ImportError as e:
     logger.warning(f"Failed to load content_versions routes: {e}")
 
 try:
     from app.api.routes import import_content
+
     app.include_router(import_content.router, prefix="/api/content", tags=["import"])
 except ImportError as e:
     logger.warning(f"Failed to load import_content routes: {e}")
 
 try:
     from app.api.routes import content_workflow
+
     app.include_router(
         content_workflow.router, prefix="/api/content", tags=["workflow"]
     )
@@ -275,30 +289,35 @@ except ImportError as e:
 
 try:
     from app.api.routes import llm
+
     app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 except ImportError as e:
     logger.warning(f"Failed to load llm routes: {e}")
 
 try:
     from app.api.routes import llm_config
+
     app.include_router(llm_config.router, prefix="/api/llm-config", tags=["llm-config"])
 except ImportError as e:
     logger.warning(f"Failed to load llm_config routes: {e}")
 
 try:
     from app.api.routes import ai
+
     app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 except ImportError as e:
     logger.warning(f"Failed to load ai routes: {e}")
 
 try:
     from app.api.routes import user_export
+
     app.include_router(user_export.router, prefix="/api/user", tags=["user"])
 except ImportError as e:
     logger.warning(f"Failed to load user_export routes: {e}")
 
 try:
     from app.api.routes import monitoring
+
     app.include_router(monitoring.router, prefix="/api/monitoring", tags=["monitoring"])
 except ImportError as e:
     logger.warning(f"Failed to load monitoring routes: {e}")
@@ -369,7 +388,9 @@ if not frontend_path.exists():
 
 if frontend_path.exists():
     # Mount static files at root, but only for non-API routes
-    app.mount("/assets", StaticFiles(directory=str(frontend_path / "assets")), name="assets")
+    app.mount(
+        "/assets", StaticFiles(directory=str(frontend_path / "assets")), name="assets"
+    )
 
     # Catch-all route for SPA - serves index.html for all non-API routes
     @app.get("/{full_path:path}")

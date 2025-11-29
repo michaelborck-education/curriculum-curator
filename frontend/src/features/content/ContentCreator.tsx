@@ -2,27 +2,27 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import RichTextEditor from '../../components/Editor/RichTextEditor';
 import PedagogySelector from '../../components/Wizard/PedagogySelector';
-import { enhanceContent, createContent, getUnits } from '../../services/api';
+import {
+  enhanceContent,
+  createContent,
+  getUnits,
+  generateContent,
+} from '../../services/api';
 import { Loader2, Sparkles, Save, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
-import type {
-  ContentType,
-  PedagogyType,
-  StreamedContentData,
-  Unit,
-} from '../../types/index';
+import type { ContentType, PedagogyType, Unit } from '../../types/index';
 
 const ContentCreator = () => {
   const { type } = useParams<{ type: ContentType }>();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [units, setUnits] = useState<Unit[]>([]);
   const [pedagogy, setPedagogy] = useState<PedagogyType>('inquiry-based');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [streamedContent, setStreamedContent] = useState('');
 
   useEffect(() => {
     fetchUnits();
@@ -39,28 +39,28 @@ const ContentCreator = () => {
   };
 
   const handleGenerate = async () => {
+    if (!topic.trim()) {
+      toast.error('Please enter a topic to generate content about');
+      return;
+    }
+
     setIsGenerating(true);
-    setStreamedContent('');
 
     try {
-      const eventSource = new EventSource(
-        `/api/llm/generate?type=${type}&pedagogy=${pedagogy}&stream=true`
+      const response = await generateContent(
+        type || 'lecture',
+        pedagogy,
+        topic
       );
-
-      eventSource.onmessage = (event: MessageEvent) => {
-        const data: StreamedContentData = JSON.parse(event.data);
-        setStreamedContent(prev => prev + data.content);
-      };
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        setIsGenerating(false);
-        setContent(streamedContent);
-        toast.success('Content generated successfully!');
-      };
-    } catch (error) {
+      const generatedContent = response.data?.content || '';
+      setContent(generatedContent);
+      toast.success('Content generated successfully!');
+    } catch (error: unknown) {
       console.error('Error generating content:', error);
-      toast.error('Failed to generate content');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to generate content';
+      toast.error(errorMessage);
+    } finally {
       setIsGenerating(false);
     }
   };
@@ -175,12 +175,32 @@ const ContentCreator = () => {
                 </div>
               </div>
 
+              <div>
+                <label
+                  htmlFor='topic'
+                  className='block text-sm font-medium text-gray-700 mb-1'
+                >
+                  Topic for AI Generation
+                </label>
+                <input
+                  id='topic'
+                  type='text'
+                  value={topic}
+                  onChange={e => setTopic(e.target.value)}
+                  placeholder='e.g., Introduction to Machine Learning, Photosynthesis in Plants...'
+                  className='w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500'
+                />
+                <p className='text-xs text-gray-500 mt-1'>
+                  Describe what you want the AI to generate content about
+                </p>
+              </div>
+
               <div className='flex justify-between items-center'>
                 <h2 className='text-xl font-semibold'>Content Editor</h2>
                 <div className='flex gap-2'>
                   <button
                     onClick={handleGenerate}
-                    disabled={isGenerating}
+                    disabled={isGenerating || !topic.trim()}
                     className='px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2'
                   >
                     {isGenerating ? (
@@ -188,7 +208,7 @@ const ContentCreator = () => {
                     ) : (
                       <Sparkles size={18} />
                     )}
-                    Generate
+                    {isGenerating ? 'Generating...' : 'Generate'}
                   </button>
                   <button
                     onClick={handleEnhance}
@@ -213,12 +233,17 @@ const ContentCreator = () => {
               </div>
             </div>
 
-            {isGenerating && streamedContent ? (
-              <div className='border border-gray-300 rounded-lg p-4 min-h-[400px] bg-gray-50'>
-                <div className='prose max-w-none'>
-                  <div dangerouslySetInnerHTML={{ __html: streamedContent }} />
-                  <span className='inline-block w-2 h-4 bg-gray-600 animate-pulse' />
-                </div>
+            {isGenerating ? (
+              <div className='border border-gray-300 rounded-lg p-8 min-h-[400px] bg-gray-50 flex flex-col items-center justify-center'>
+                <Loader2
+                  className='animate-spin text-purple-600 mb-4'
+                  size={48}
+                />
+                <p className='text-gray-600 text-lg'>Generating content...</p>
+                <p className='text-gray-500 text-sm mt-2'>
+                  This may take a moment depending on the complexity of your
+                  topic
+                </p>
               </div>
             ) : (
               <RichTextEditor

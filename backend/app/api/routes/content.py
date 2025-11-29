@@ -307,11 +307,12 @@ async def upload_content(
 
     # Read file content
     file_content = await file.read()
+    filename = file.filename or "unnamed_file"
 
     # Process the file
     result = await file_import_service.process_file(
         file_content=file_content,
-        filename=file.filename,
+        filename=filename,
         content_type=file.content_type,
     )
 
@@ -325,12 +326,12 @@ async def upload_content(
     new_content = Content(
         id=str(uuid.uuid4()),
         unit_id=unit_id,
-        title=f"Imported: {file.filename}",
+        title=f"Imported: {filename}",
         type=result["content_type"],
         content=result["content"],
         status=ContentStatus.DRAFT,
         metadata={
-            "original_filename": file.filename,
+            "original_filename": filename,
             "import_metadata": result["metadata"],
             "sections": result["sections"],
             "word_count": result["word_count"],
@@ -394,11 +395,12 @@ async def batch_upload_content(
         try:
             # Read file content
             file_content = await file.read()
+            file_name = file.filename or "unnamed_file"
 
             # Process the file
             result = await file_import_service.process_file(
                 file_content=file_content,
-                filename=file.filename,
+                filename=file_name,
                 content_type=file.content_type,
             )
 
@@ -407,12 +409,12 @@ async def batch_upload_content(
                 new_content = Content(
                     id=str(uuid.uuid4()),
                     unit_id=unit_id,
-                    title=f"Imported: {file.filename}",
+                    title=f"Imported: {file_name}",
                     type=result["content_type"],
                     content=result["content"],
                     status=ContentStatus.DRAFT,
                     metadata={
-                        "original_filename": file.filename,
+                        "original_filename": file_name,
                         "import_metadata": result["metadata"],
                         "sections": result["sections"],
                     },

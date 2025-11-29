@@ -249,7 +249,7 @@ async def get_user_statistics(
     # Get users by role
     role_counts = db.query(User.role, func.count(User.id)).group_by(User.role).all()
 
-    users_by_role = dict(role_counts)
+    users_by_role = {str(row[0]): int(row[1]) for row in role_counts}
 
     # Get recent registrations (last 7 days)
     seven_days_ago = datetime.utcnow() - timedelta(days=7)

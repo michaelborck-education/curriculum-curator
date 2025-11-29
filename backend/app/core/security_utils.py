@@ -80,7 +80,7 @@ class SecurityManager:
         user_agent: str,
         success: bool,
         user: User | None = None,  # noqa: ARG004
-        failure_reason: str = "Invalid credentials",
+        failure_reason: str | None = "Invalid credentials",
     ) -> LoginAttempt:
         """Record login attempt and handle lockouts"""
         # Get or create attempt record for this email/IP
@@ -106,7 +106,7 @@ class SecurityManager:
                 other_attempt.record_success()
         else:
             # Record failed attempt
-            attempt.record_failure(failure_reason)
+            attempt.record_failure(failure_reason or "Invalid credentials")
 
         db.commit()
         return attempt

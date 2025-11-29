@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ArrowLeft, GraduationCap, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, GraduationCap } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import RegistrationModal from './RegistrationModal';
 import PasswordResetFlow from './PasswordResetFlow';
 import VerificationModal from './VerificationModal';
+import { Alert, Button } from '../../components/ui';
+import { useModal } from '../../hooks';
 import type { LoginProps, HandleSubmitFunction } from '../../types/index';
 
 const Login = ({ onBackToLanding }: LoginProps) => {
@@ -13,10 +15,11 @@ const Login = ({ onBackToLanding }: LoginProps) => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showRegistration, setShowRegistration] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [showVerification, setShowVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
+
+  const registrationModal = useModal();
+  const passwordResetModal = useModal();
+  const verificationModal = useModal();
 
   const login = useAuthStore(state => state.login);
   const navigate = useNavigate();
@@ -27,7 +30,6 @@ const Login = ({ onBackToLanding }: LoginProps) => {
     setIsLoading(true);
 
     try {
-      // Send as JSON - simple and clean
       const response = await api.post('/auth/login', {
         email,
         password,
@@ -36,33 +38,38 @@ const Login = ({ onBackToLanding }: LoginProps) => {
       if (response.status === 200) {
         const { access_token, user } = response.data;
 
-        // Store token
         localStorage.setItem('token', access_token);
-
-        // Update auth store
         login(user);
 
-        // Navigate based on role
         if (user.role === 'admin') {
           navigate('/admin');
         } else {
           navigate('/dashboard');
         }
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: {
+          status?: number;
+          data?: {
+            detail?:
+              | string
+              | { error?: string; email?: string; message?: string };
+          };
+        };
+      };
+
       if (error.response?.status === 401) {
         setError('Invalid email or password');
       } else if (error.response?.status === 403) {
-        // Check if it's specifically email not verified
         const detail = error.response?.data?.detail;
         if (
           detail &&
           typeof detail === 'object' &&
           detail.error === 'email_not_verified'
         ) {
-          // Open verification modal with the email
           setVerificationEmail(detail.email || email);
-          setShowVerification(true);
+          verificationModal.open();
           setError('');
         } else {
           setError('Please verify your email before logging in');
@@ -85,8 +92,7 @@ const Login = ({ onBackToLanding }: LoginProps) => {
   };
 
   const handleRegistrationSuccess = () => {
-    setShowRegistration(false);
-    // User is already logged in after verification, navigate to dashboard
+    registrationModal.close();
     navigate('/dashboard');
   };
 
@@ -116,10 +122,9 @@ const Login = ({ onBackToLanding }: LoginProps) => {
           </div>
 
           {error && (
-            <div className='p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-              <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-              <p className='text-sm text-red-600'>{error}</p>
-            </div>
+            <Alert variant='error' onDismiss={() => setError('')}>
+              {error}
+            </Alert>
           )}
 
           <form className='mt-8 space-y-6' onSubmit={handleSubmit}>
@@ -152,7 +157,7 @@ const Login = ({ onBackToLanding }: LoginProps) => {
               <div className='text-sm'>
                 <button
                   type='button'
-                  onClick={() => setShowPasswordReset(true)}
+                  onClick={passwordResetModal.open}
                   className='font-medium text-purple-600 hover:text-purple-500'
                 >
                   Forgot your password?
@@ -161,20 +166,13 @@ const Login = ({ onBackToLanding }: LoginProps) => {
             </div>
 
             <div>
-              <button
+              <Button
                 type='submit'
-                disabled={isLoading}
-                className='group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-purple-400 disabled:cursor-not-allowed'
+                loading={isLoading}
+                className='w-full bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className='w-4 h-4 mr-2 animate-spin' />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign in'
-                )}
-              </button>
+                Sign in
+              </Button>
             </div>
 
             <div className='text-center'>
@@ -182,7 +180,7 @@ const Login = ({ onBackToLanding }: LoginProps) => {
                 Don&apos;t have an account?{' '}
                 <button
                   type='button'
-                  onClick={() => setShowRegistration(true)}
+                  onClick={registrationModal.open}
                   className='font-medium text-purple-600 hover:text-purple-500'
                 >
                   Sign up
@@ -195,31 +193,34 @@ const Login = ({ onBackToLanding }: LoginProps) => {
 
       {/* Registration Modal */}
       <RegistrationModal
-        isOpen={showRegistration}
-        onClose={() => setShowRegistration(false)}
+        isOpen={registrationModal.isOpen}
+        onClose={registrationModal.close}
         onSuccess={handleRegistrationSuccess}
       />
 
       {/* Password Reset Flow */}
-      {showPasswordReset && (
+      {passwordResetModal.isOpen && (
         <PasswordResetFlow
-          onClose={() => setShowPasswordReset(false)}
+          onClose={passwordResetModal.close}
           onSuccess={() => {
-            setShowPasswordReset(false);
+            passwordResetModal.close();
             setError('');
           }}
         />
       )}
 
       {/* Verification Modal */}
-      {showVerification && (
+      {verificationModal.isOpen && (
         <VerificationModal
           email={verificationEmail}
-          onClose={() => setShowVerification(false)}
+          onClose={verificationModal.close}
           onSuccess={() => {
-            setShowVerification(false);
-            // Try to login again after verification
-            handleSubmit({ preventDefault: () => {} } as any);
+            verificationModal.close();
+            handleSubmit({
+              preventDefault: () => {
+                /* noop */
+              },
+            } as React.FormEvent<HTMLFormElement>);
           }}
         />
       )}

@@ -1,11 +1,13 @@
 """
-Advanced LLM Service with comprehensive AI capabilities
+Advanced LLM Service with comprehensive AI capabilities for education.
+
+This service provides specialized educational AI features built on top of
+the unified LLMService (which uses LiteLLM under the hood).
 """
 
 import json
 from typing import Any
 
-from app.core.config import settings
 from app.schemas.llm import (
     ChatMessage,
     GeneratedFeedback,
@@ -13,43 +15,25 @@ from app.schemas.llm import (
     LLMProvider,
     PedagogyAnalysisResponse,
 )
-
-# Try to import LLM providers - they're optional
-try:
-    import openai
-
-    has_openai = True
-except ImportError:
-    openai = None
-    has_openai = False
-
-try:
-    import anthropic
-
-    has_anthropic = True
-except ImportError:
-    anthropic = None
-    has_anthropic = False
+from app.services.llm_service import llm_service
 
 
 class AdvancedLLMService:
     """Enhanced LLM service with educational AI capabilities"""
 
     def __init__(self):
-        self.providers = {}
-        self._initialize_providers()
+        self.providers: dict[str, bool] = {}
+        self._check_providers()
 
-    def _initialize_providers(self):
-        """Initialize available LLM providers"""
-        # OpenAI
-        if settings.OPENAI_API_KEY and has_openai:
-            self.providers[LLMProvider.OPENAI] = openai
+    def _check_providers(self):
+        """Check which providers are available"""
+        # These are checked based on environment variables
+        from app.core.config import settings
 
-        # Anthropic
-        if settings.ANTHROPIC_API_KEY and has_anthropic:
-            self.providers[LLMProvider.ANTHROPIC] = anthropic.Anthropic(
-                api_key=settings.ANTHROPIC_API_KEY
-            )
+        if settings.OPENAI_API_KEY:
+            self.providers["openai"] = True
+        if settings.ANTHROPIC_API_KEY:
+            self.providers["anthropic"] = True
 
     async def enhance_content(
         self,
@@ -61,8 +45,6 @@ class AdvancedLLMService:
         focus_areas: list[str] | None = None,
     ) -> str:
         """Enhance content with AI assistance"""
-
-        # Build enhancement prompt
         prompt = self._build_enhancement_prompt(
             content=content,
             enhancement_type=enhancement_type,
@@ -72,15 +54,16 @@ class AdvancedLLMService:
             focus_areas=focus_areas,
         )
 
-        # Get completion from LLM
-        messages = [
-            ChatMessage(
-                role="system", content="You are an expert educational content enhancer."
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = "You are an expert educational content enhancer."
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
 
-        return await self.get_completion(messages)
+        if isinstance(result, str):
+            return result
+        # Collect generator if streaming was returned
+        return "".join([chunk async for chunk in result])
 
     async def analyze_pedagogy(
         self,
@@ -90,7 +73,6 @@ class AdvancedLLMService:
         target_style: str | None = None,
     ) -> PedagogyAnalysisResponse:
         """Analyze content for pedagogical quality"""
-
         prompt = f"""Analyze the following educational content for pedagogical quality:
 
 Content:
@@ -106,22 +88,23 @@ Please provide:
 
 Format your response as JSON with keys: current_style, confidence, strengths, weaknesses, suggestions, alignment_score"""
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content="You are an expert in educational pedagogy and instructional design.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = "You are an expert in educational pedagogy and instructional design. Always respond with valid JSON."
 
-        response = await self.get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
         try:
-            # Parse JSON response
-            data = json.loads(response)
+            data = json.loads(response_text)
             return PedagogyAnalysisResponse(**data)
         except (json.JSONDecodeError, ValueError):
-            # Fallback to basic analysis
             return PedagogyAnalysisResponse(
                 current_style="unknown",
                 confidence=0.5,
@@ -139,7 +122,6 @@ Format your response as JSON with keys: current_style, confidence, strengths, we
         bloom_levels: list[str] | None = None,
     ) -> list[GeneratedQuestion]:
         """Generate assessment questions from content"""
-
         question_types = question_types or ["multiple_choice", "short_answer"]
 
         prompt = f"""Generate {count} assessment questions from the following content:
@@ -164,21 +146,25 @@ For each question provide:
 
 Format as JSON array with the structure for each question."""
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content="You are an expert assessment designer and educational evaluator.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = (
+            "You are an expert assessment designer. Always respond with valid JSON."
+        )
 
-        response = await self.get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
         try:
-            questions_data = json.loads(response)
+            questions_data = json.loads(response_text)
             return [GeneratedQuestion(**q) for q in questions_data]
         except (json.JSONDecodeError, ValueError):
-            # Generate a basic question as fallback
             return [
                 GeneratedQuestion(
                     question="What are the key concepts discussed in this content?",
@@ -198,7 +184,6 @@ Format as JSON array with the structure for each question."""
         bullet_points: bool = True,
     ) -> str:
         """Generate summary of content"""
-
         format_instruction = "bullet points" if bullet_points else "paragraph form"
         length_instruction = f"Maximum {max_length} words" if max_length else "Concise"
 
@@ -220,15 +205,18 @@ Requirements:
 {"- Include key examples" if include_examples else "- Focus on concepts, not examples"}
 """
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content="You are an expert at summarizing educational content clearly and concisely.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = "You are an expert at summarizing educational content clearly and concisely."
 
-        return await self._get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
     async def generate_feedback(
         self,
@@ -240,7 +228,6 @@ Requirements:
         highlight_strengths: bool = True,
     ) -> GeneratedFeedback:
         """Generate feedback for student work"""
-
         tone_instructions = {
             "encouraging": "Be supportive and highlight progress",
             "neutral": "Provide balanced, objective feedback",
@@ -261,18 +248,21 @@ Provide feedback with a {feedback_tone} tone.
 
 Structure your response as JSON with keys: overall_feedback, strengths, areas_for_improvement, specific_suggestions, grade_suggestion, rubric_scores"""
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content=f"You are an experienced educator providing constructive feedback. {tone_instructions.get(feedback_tone, '')}",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = f"You are an experienced educator providing constructive feedback. {tone_instructions.get(feedback_tone, '')} Always respond with valid JSON."
 
-        response = await self.get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
         try:
-            data = json.loads(response)
+            data = json.loads(response_text)
             return GeneratedFeedback(**data)
         except (json.JSONDecodeError, ValueError):
             return GeneratedFeedback(
@@ -291,7 +281,6 @@ Structure your response as JSON with keys: overall_feedback, strengths, areas_fo
         glossary: dict[str, str] | None = None,
     ) -> str:
         """Translate educational content"""
-
         prompt = f"""Translate the following educational content to {target_language}:
 
 Content:
@@ -304,15 +293,18 @@ Requirements:
 - Maintain educational clarity and accuracy
 """
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content=f"You are an expert translator specializing in educational content. Translate to {target_language} while maintaining pedagogical effectiveness.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = f"You are an expert translator specializing in educational content. Translate to {target_language} while maintaining pedagogical effectiveness."
 
-        return await self._get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
     async def generate_learning_path(
         self,
@@ -323,7 +315,6 @@ Requirements:
         learning_style: str | None = None,
     ) -> dict[str, Any]:
         """Generate personalized learning path"""
-
         prompt = f"""Create a personalized learning path for:
 
 Topic: {topic}
@@ -342,18 +333,21 @@ Provide a structured learning path with:
 
 Format as JSON with appropriate structure."""
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content="You are an expert learning designer creating personalized educational pathways.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = "You are an expert learning designer creating personalized educational pathways. Always respond with valid JSON."
 
-        response = await self.get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
         try:
-            return json.loads(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             return {
                 "prerequisites": [],
@@ -371,7 +365,6 @@ Format as JSON with appropriate structure."""
         context: str | None = None,
     ) -> dict[str, Any]:
         """Detect and explain student misconceptions"""
-
         prompt = f"""Analyze the student's response for misconceptions:
 
 {f"Context/Question: {context}" if context else ""}
@@ -386,18 +379,21 @@ Identify:
 
 Format as JSON with keys: misconceptions, confusion_sources, corrections, remediation_suggestions"""
 
-        messages = [
-            ChatMessage(
-                role="system",
-                content="You are an expert educator skilled at identifying and addressing student misconceptions.",
-            ),
-            ChatMessage(role="user", content=prompt),
-        ]
+        system_prompt = "You are an expert educator skilled at identifying and addressing student misconceptions. Always respond with valid JSON."
 
-        response = await self.get_completion(messages)
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt=system_prompt,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
         try:
-            return json.loads(response)
+            return json.loads(response_text)
         except json.JSONDecodeError:
             return {
                 "misconceptions": ["Unable to analyze"],
@@ -416,7 +412,6 @@ Format as JSON with keys: misconceptions, confusion_sources, corrections, remedi
         focus_areas: list[str] | None,
     ) -> str:
         """Build prompt for content enhancement"""
-
         enhancement_instructions = {
             "improve": "Improve the clarity, engagement, and educational effectiveness",
             "simplify": "Simplify the language and concepts for better understanding",
@@ -445,124 +440,28 @@ Provide the enhanced content maintaining markdown formatting."""
         provider: LLMProvider | None = None,
     ) -> str:
         """Get completion from available LLM provider"""
+        # Convert ChatMessage objects to dict format
+        system_prompt = None
+        user_prompt = ""
 
-        # Select provider (prefer OpenAI, then Anthropic)
-        if provider and provider in self.providers:
-            selected_provider = provider
-        elif LLMProvider.OPENAI in self.providers:
-            selected_provider = LLMProvider.OPENAI
-        elif LLMProvider.ANTHROPIC in self.providers:
-            selected_provider = LLMProvider.ANTHROPIC
-        else:
-            # Fallback to mock response for testing
-            return self._mock_completion(messages)
+        for msg in messages:
+            if msg.role == "system":
+                system_prompt = msg.content
+            elif msg.role == "user":
+                user_prompt = msg.content
 
-        # Convert messages to provider format and get completion
-        if selected_provider == LLMProvider.OPENAI:
-            return await self._get_openai_completion(messages, temperature, max_tokens)
-        if selected_provider == LLMProvider.ANTHROPIC:
-            return await self._get_anthropic_completion(
-                messages, temperature, max_tokens
-            )
+        result = await llm_service.generate_text(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
-        return self._mock_completion(messages)
-
-    async def _get_openai_completion(
-        self,
-        messages: list[ChatMessage],
-        temperature: float,
-        max_tokens: int | None,
-    ) -> str:
-        """Get completion from OpenAI"""
-        try:
-            if not has_openai or not openai:
-                return "OpenAI not available"
-
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-
-            return response.choices[0].message.content or ""
-        except Exception as e:
-            print(f"OpenAI error: {e}")
-            return self._mock_completion(messages)
-
-    async def _get_anthropic_completion(
-        self,
-        messages: list[ChatMessage],
-        temperature: float,
-        max_tokens: int | None,
-    ) -> str:
-        """Get completion from Anthropic"""
-        try:
-            client = self.providers[LLMProvider.ANTHROPIC]
-
-            # Convert to Anthropic format
-            system_message = next(
-                (m.content for m in messages if m.role == "system"), ""
-            )
-            user_messages = [m.content for m in messages if m.role == "user"]
-
-            response = client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=max_tokens or 1000,
-                temperature=temperature,
-                system=system_message,
-                messages=[{"role": "user", "content": " ".join(user_messages)}],
-            )
-
-            return response.content[0].text
-        except Exception as e:
-            print(f"Anthropic error: {e}")
-            return self._mock_completion(messages)
-
-    def _mock_completion(self, messages: list[ChatMessage]) -> str:
-        """Generate mock completion for testing"""
-        last_message = messages[-1].content if messages else ""
-
-        if "enhance" in last_message.lower():
-            return "Enhanced content: This is an improved version with better clarity and structure."
-        if "analyze" in last_message.lower():
-            return json.dumps(
-                {
-                    "current_style": "traditional",
-                    "confidence": 0.8,
-                    "strengths": ["Clear structure", "Good examples"],
-                    "weaknesses": ["Could use more interaction"],
-                    "suggestions": ["Add practice exercises"],
-                    "alignment_score": 85.0,
-                }
-            )
-        if "question" in last_message.lower():
-            return json.dumps(
-                [
-                    {
-                        "question": "What is the main concept discussed?",
-                        "question_type": "short_answer",
-                        "difficulty": "medium",
-                        "bloom_level": "comprehension",
-                        "points": 5,
-                    }
-                ]
-            )
-        if "summary" in last_message.lower():
-            return "• Key point 1\n• Key point 2\n• Key point 3"
-        if "feedback" in last_message.lower():
-            return json.dumps(
-                {
-                    "overall_feedback": "Good effort on this assignment.",
-                    "strengths": ["Completed on time", "Shows understanding"],
-                    "areas_for_improvement": ["Add more detail"],
-                    "specific_suggestions": ["Review chapter 3"],
-                    "grade_suggestion": "B+",
-                }
-            )
-        return "AI response generated successfully."
+        return (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
 
 
 # Singleton instance

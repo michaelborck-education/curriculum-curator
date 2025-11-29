@@ -42,7 +42,8 @@ async def analyze_pdf(
     3. Returns structured data without saving
     """
     # Validate file type
-    if not file.filename.lower().endswith(".pdf"):
+    filename = file.filename or ""
+    if not filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are supported",
@@ -122,7 +123,8 @@ async def extract_pdf_text(
     - markdown: Converted to Markdown format
     """
     # Validate file type
-    if not file.filename.lower().endswith(".pdf"):
+    filename = file.filename or ""
+    if not filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are supported",
@@ -387,12 +389,13 @@ async def create_content_from_pdf(
         # Extract and convert to markdown
         extracted_doc = await pdf_parser_service.extract_from_bytes(contents)
         markdown_content = await pdf_parser_service.convert_to_markdown(extracted_doc)
+        pdf_filename = file.filename or "unnamed.pdf"
 
         # Create content item
         content = Content(
             id=uuid.uuid4(),
             unit_id=unit_id,
-            title=extracted_doc.metadata.title or file.filename.replace(".pdf", ""),
+            title=extracted_doc.metadata.title or pdf_filename.replace(".pdf", ""),
             type=content_type.value,
             content_markdown=markdown_content,
             week_number=week_number,
@@ -401,7 +404,7 @@ async def create_content_from_pdf(
             * 3,  # Rough estimate
             generation_metadata={
                 "source": "pdf_import",
-                "filename": file.filename,
+                "filename": pdf_filename,
                 "extraction_method": extracted_doc.extraction_method,
                 "page_count": extracted_doc.metadata.page_count,
             },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   MoreVertical,
@@ -9,11 +9,10 @@ import {
   Edit,
   CheckCircle,
   XCircle,
-  AlertCircle,
-  Loader2,
   UserX,
 } from 'lucide-react';
 import api from '../../services/api';
+import { LoadingState, Alert, Button, EmptyState } from '../../components/ui';
 
 interface User {
   id: string;
@@ -26,116 +25,99 @@ interface User {
   lastLogin?: string;
 }
 
+type RoleFilter = 'all' | 'lecturer' | 'admin' | 'student' | 'assistant';
+type StatusFilter = 'all' | 'active' | 'inactive';
+
+const roleOptions = [
+  { value: 'all', label: 'All Roles' },
+  { value: 'lecturer', label: 'Lecturers' },
+  { value: 'admin', label: 'Admins' },
+  { value: 'student', label: 'Students' },
+  { value: 'assistant', label: 'Assistants' },
+];
+
+const statusOptions = [
+  { value: 'all', label: 'All Status' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+
 const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState<
-    'all' | 'lecturer' | 'admin' | 'student' | 'assistant'
-  >('all');
-  const [filterStatus, setFilterStatus] = useState<
-    'all' | 'active' | 'inactive'
-  >('all');
+  const [filterRole, setFilterRole] = useState<RoleFilter>('all');
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDropdown, setShowDropdown] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    filterUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users, searchQuery, filterRole, filterStatus]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await api.get('/admin/users');
       setUsers(response.data.users || response.data);
       setError('');
-    } catch (error: any) {
+    } catch (err) {
       setError('Failed to load users');
-      console.error('Error fetching users:', error);
+      console.error('Error fetching users:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const filterUsers = () => {
-    let filtered = [...users];
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        user =>
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+  // Filter users based on search, role, and status
+  const filteredUsers = users.filter(user => {
+    const matchesSearch =
+      !searchQuery ||
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Role filter
-    if (filterRole !== 'all') {
-      filtered = filtered.filter(user => user.role === filterRole);
-    }
+    const matchesRole = filterRole === 'all' || user.role === filterRole;
 
-    // Status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(user =>
-        filterStatus === 'active' ? user.isActive : !user.isActive
-      );
-    }
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'active' ? user.isActive : !user.isActive);
 
-    setFilteredUsers(filtered);
-  };
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
   const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
       await api.post(`/api/admin/users/${userId}/toggle-status`);
-
-      setUsers(
-        users.map(user =>
+      setUsers(prev =>
+        prev.map(user =>
           user.id === userId ? { ...user, isActive: !currentStatus } : user
         )
       );
-
       setShowDropdown(null);
-    } catch (error) {
-      console.error('Error updating user status:', error);
+    } catch (err) {
+      console.error('Error updating user status:', err);
     }
   };
 
   const handleVerifyUser = async (userId: string) => {
     try {
       await api.post(`/api/admin/users/${userId}/verify`);
-
-      setUsers(
-        users.map(user =>
+      setUsers(prev =>
+        prev.map(user =>
           user.id === userId ? { ...user, isVerified: true } : user
         )
       );
-
       setShowDropdown(null);
-    } catch (error) {
-      console.error('Error verifying user:', error);
+    } catch (err) {
+      console.error('Error verifying user:', err);
     }
   };
 
-  const handleChangeRole = async (
-    _userId: string,
-    _newRole: 'lecturer' | 'admin' | 'student' | 'assistant'
-  ) => {
-    try {
-      // This endpoint doesn't exist yet in the backend
-      // For now, just show an alert
-      window.alert(
-        'Role change functionality will be implemented in a future version'
-      );
-      setShowDropdown(null);
-    } catch (error) {
-      console.error('Error updating user role:', error);
-    }
+  const handleChangeRole = async (_userId: string, _newRole: User['role']) => {
+    window.alert(
+      'Role change functionality will be implemented in a future version'
+    );
+    setShowDropdown(null);
   };
 
   const handleDeleteUser = async (
@@ -147,12 +129,12 @@ const UserManagement = () => {
 
     const action = permanent ? 'permanently delete' : 'deactivate';
     const warning = permanent
-      ? 'This will permanently remove the user and all their data from the database. This action cannot be undone!'
+      ? 'This will permanently remove the user and all their data. This action cannot be undone!'
       : 'This will deactivate the user account. They will not be able to login.';
 
     if (
       !window.confirm(
-        `Are you sure you want to ${action} user ${user.email}?\n\n${warning}`
+        `Are you sure you want to ${action} ${user.email}?\n\n${warning}`
       )
     ) {
       return;
@@ -164,24 +146,18 @@ const UserManagement = () => {
       );
 
       if (permanent) {
-        // Remove from list if permanently deleted
-        setUsers(users.filter(user => user.id !== userId));
+        setUsers(prev => prev.filter(u => u.id !== userId));
       } else {
-        // Update user status if soft deleted
-        setUsers(
-          users.map(user =>
-            user.id === userId ? { ...user, isActive: false } : user
-          )
+        setUsers(prev =>
+          prev.map(u => (u.id === userId ? { ...u, isActive: false } : u))
         );
       }
 
-      // Show success message
       const message = response.data?.message || `User ${action}d successfully`;
       window.alert(message);
-
       setShowDropdown(null);
-    } catch (error) {
-      console.error('Error deleting user:', error);
+    } catch (err) {
+      console.error('Error deleting user:', err);
       window.alert(`Failed to ${action} user. Please try again.`);
     }
   };
@@ -195,26 +171,14 @@ const UserManagement = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className='flex items-center justify-center h-64'>
-        <Loader2 className='w-8 h-8 animate-spin text-purple-600' />
-      </div>
-    );
+    return <LoadingState message='Loading users...' />;
   }
 
   if (error) {
     return (
-      <div className='flex items-center justify-center h-64'>
-        <div className='text-center'>
-          <AlertCircle className='w-12 h-12 text-red-500 mx-auto mb-4' />
-          <p className='text-gray-600'>{error}</p>
-          <button
-            onClick={fetchUsers}
-            className='mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700'
-          >
-            Retry
-          </button>
-        </div>
+      <div className='space-y-4'>
+        <Alert variant='error'>{error}</Alert>
+        <Button onClick={fetchUsers}>Retry</Button>
       </div>
     );
   }
@@ -225,10 +189,10 @@ const UserManagement = () => {
         <h2 className='text-2xl font-semibold text-gray-900'>
           User Management
         </h2>
-        <button className='flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors'>
-          <UserPlus className='w-4 h-4' />
+        <Button>
+          <UserPlus className='w-4 h-4 mr-2' />
           Add User
-        </button>
+        </Button>
       </div>
 
       {/* Filters */}
@@ -251,27 +215,27 @@ const UserManagement = () => {
           {/* Role Filter */}
           <select
             value={filterRole}
-            onChange={e => setFilterRole(e.target.value as typeof filterRole)}
+            onChange={e => setFilterRole(e.target.value as RoleFilter)}
             className='px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500'
           >
-            <option value='all'>All Roles</option>
-            <option value='lecturer'>Lecturers</option>
-            <option value='admin'>Admins</option>
-            <option value='student'>Students</option>
-            <option value='assistant'>Assistants</option>
+            {roleOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
 
           {/* Status Filter */}
           <select
             value={filterStatus}
-            onChange={e =>
-              setFilterStatus(e.target.value as typeof filterStatus)
-            }
+            onChange={e => setFilterStatus(e.target.value as StatusFilter)}
             className='px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500'
           >
-            <option value='all'>All Status</option>
-            <option value='active'>Active</option>
-            <option value='inactive'>Inactive</option>
+            {statusOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -307,154 +271,32 @@ const UserManagement = () => {
             </thead>
             <tbody className='bg-white divide-y divide-gray-200'>
               {filteredUsers.map(user => (
-                <tr
+                <UserRow
                   key={user.id}
-                  className={`hover:bg-gray-50 ${!user.isActive ? 'opacity-60 bg-gray-50' : ''}`}
-                >
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <div>
-                      <div className='text-sm font-medium text-gray-900'>
-                        {user.name}
-                      </div>
-                      <div className='text-sm text-gray-500'>{user.email}</div>
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === 'admin'
-                          ? 'bg-purple-100 text-purple-800'
-                          : user.role === 'lecturer'
-                            ? 'bg-blue-100 text-blue-800'
-                            : user.role === 'student'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    </span>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {user.isActive ? (
-                        <>
-                          <CheckCircle className='w-3 h-3' />
-                          Active
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className='w-3 h-3' />
-                          Inactive
-                        </>
-                      )}
-                    </span>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    {user.isVerified ? (
-                      <CheckCircle className='w-5 h-5 text-green-600' />
-                    ) : (
-                      <XCircle className='w-5 h-5 text-gray-400' />
-                    )}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                    {formatDate(user.createdAt)}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                    {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap text-right text-sm font-medium'>
-                    <div className='relative'>
-                      <button
-                        onClick={() =>
-                          setShowDropdown(
-                            showDropdown === user.id ? null : user.id
-                          )
-                        }
-                        className='text-gray-400 hover:text-gray-500'
-                      >
-                        <MoreVertical className='w-5 h-5' />
-                      </button>
-
-                      {showDropdown === user.id && (
-                        <div className='absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200'>
-                          <div className='py-1'>
-                            {!user.isVerified && (
-                              <button
-                                onClick={() => handleVerifyUser(user.id)}
-                                className='flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50 w-full text-left'
-                              >
-                                <CheckCircle className='w-4 h-4' />
-                                Verify User
-                              </button>
-                            )}
-                            <button
-                              onClick={() =>
-                                handleToggleStatus(user.id, user.isActive)
-                              }
-                              className='flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left'
-                            >
-                              {user.isActive ? (
-                                <>
-                                  <Lock className='w-4 h-4' />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <Unlock className='w-4 h-4' />
-                                  Activate
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleChangeRole(
-                                  user.id,
-                                  user.role === 'admin' ? 'lecturer' : 'admin'
-                                )
-                              }
-                              className='flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left'
-                            >
-                              <Edit className='w-4 h-4' />
-                              Make{' '}
-                              {user.role === 'admin' ? 'Lecturer' : 'Admin'}
-                            </button>
-                            {user.isActive && (
-                              <button
-                                onClick={() => handleDeleteUser(user.id, false)}
-                                className='flex items-center gap-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 w-full text-left'
-                              >
-                                <UserX className='w-4 h-4' />
-                                Deactivate User
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleDeleteUser(user.id, true)}
-                              className='flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left border-t border-gray-100'
-                            >
-                              <Trash2 className='w-4 h-4' />
-                              Permanently Delete
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                  user={user}
+                  showDropdown={showDropdown === user.id}
+                  onToggleDropdown={() =>
+                    setShowDropdown(showDropdown === user.id ? null : user.id)
+                  }
+                  onToggleStatus={() =>
+                    handleToggleStatus(user.id, user.isActive)
+                  }
+                  onVerify={() => handleVerifyUser(user.id)}
+                  onChangeRole={newRole => handleChangeRole(user.id, newRole)}
+                  onDeactivate={() => handleDeleteUser(user.id, false)}
+                  onDelete={() => handleDeleteUser(user.id, true)}
+                  formatDate={formatDate}
+                />
               ))}
             </tbody>
           </table>
         </div>
 
         {filteredUsers.length === 0 && (
-          <div className='text-center py-12'>
-            <p className='text-gray-500'>No users found</p>
-          </div>
+          <EmptyState
+            title='No users found'
+            description='Try adjusting your search or filter criteria'
+          />
         )}
       </div>
 
@@ -465,5 +307,186 @@ const UserManagement = () => {
     </div>
   );
 };
+
+// Extracted UserRow component for cleaner code
+interface UserRowProps {
+  user: User;
+  showDropdown: boolean;
+  onToggleDropdown: () => void;
+  onToggleStatus: () => void;
+  onVerify: () => void;
+  onChangeRole: (role: User['role']) => void;
+  onDeactivate: () => void;
+  onDelete: () => void;
+  formatDate: (date: string) => string;
+}
+
+const UserRow = ({
+  user,
+  showDropdown,
+  onToggleDropdown,
+  onToggleStatus,
+  onVerify,
+  onChangeRole,
+  onDeactivate,
+  onDelete,
+  formatDate,
+}: UserRowProps) => {
+  const roleColors: Record<User['role'], string> = {
+    admin: 'bg-purple-100 text-purple-800',
+    lecturer: 'bg-blue-100 text-blue-800',
+    student: 'bg-green-100 text-green-800',
+    assistant: 'bg-gray-100 text-gray-800',
+  };
+
+  return (
+    <tr
+      className={`hover:bg-gray-50 ${!user.isActive ? 'opacity-60 bg-gray-50' : ''}`}
+    >
+      <td className='px-6 py-4 whitespace-nowrap'>
+        <div>
+          <div className='text-sm font-medium text-gray-900'>{user.name}</div>
+          <div className='text-sm text-gray-500'>{user.email}</div>
+        </div>
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap'>
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleColors[user.role]}`}
+        >
+          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+        </span>
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap'>
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full ${
+            user.isActive
+              ? 'bg-green-100 text-green-800'
+              : 'bg-red-100 text-red-800'
+          }`}
+        >
+          {user.isActive ? (
+            <>
+              <CheckCircle className='w-3 h-3' />
+              Active
+            </>
+          ) : (
+            <>
+              <XCircle className='w-3 h-3' />
+              Inactive
+            </>
+          )}
+        </span>
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap'>
+        {user.isVerified ? (
+          <CheckCircle className='w-5 h-5 text-green-600' />
+        ) : (
+          <XCircle className='w-5 h-5 text-gray-400' />
+        )}
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+        {formatDate(user.createdAt)}
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+        {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
+      </td>
+      <td className='px-6 py-4 whitespace-nowrap text-right text-sm font-medium'>
+        <div className='relative'>
+          <button
+            onClick={onToggleDropdown}
+            className='text-gray-400 hover:text-gray-500'
+          >
+            <MoreVertical className='w-5 h-5' />
+          </button>
+
+          {showDropdown && (
+            <UserActionsDropdown
+              user={user}
+              onToggleStatus={onToggleStatus}
+              onVerify={onVerify}
+              onChangeRole={onChangeRole}
+              onDeactivate={onDeactivate}
+              onDelete={onDelete}
+            />
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+};
+
+// Extracted dropdown menu component
+interface UserActionsDropdownProps {
+  user: User;
+  onToggleStatus: () => void;
+  onVerify: () => void;
+  onChangeRole: (role: User['role']) => void;
+  onDeactivate: () => void;
+  onDelete: () => void;
+}
+
+const UserActionsDropdown = ({
+  user,
+  onToggleStatus,
+  onVerify,
+  onChangeRole,
+  onDeactivate,
+  onDelete,
+}: UserActionsDropdownProps) => (
+  <div className='absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200'>
+    <div className='py-1'>
+      {!user.isVerified && (
+        <button
+          onClick={onVerify}
+          className='flex items-center gap-2 px-4 py-2 text-sm text-green-700 hover:bg-green-50 w-full text-left'
+        >
+          <CheckCircle className='w-4 h-4' />
+          Verify User
+        </button>
+      )}
+      <button
+        onClick={onToggleStatus}
+        className='flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left'
+      >
+        {user.isActive ? (
+          <>
+            <Lock className='w-4 h-4' />
+            Deactivate
+          </>
+        ) : (
+          <>
+            <Unlock className='w-4 h-4' />
+            Activate
+          </>
+        )}
+      </button>
+      <button
+        onClick={() =>
+          onChangeRole(user.role === 'admin' ? 'lecturer' : 'admin')
+        }
+        className='flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left'
+      >
+        <Edit className='w-4 h-4' />
+        Make {user.role === 'admin' ? 'Lecturer' : 'Admin'}
+      </button>
+      {user.isActive && (
+        <button
+          onClick={onDeactivate}
+          className='flex items-center gap-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 w-full text-left'
+        >
+          <UserX className='w-4 h-4' />
+          Deactivate User
+        </button>
+      )}
+      <button
+        onClick={onDelete}
+        className='flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left border-t border-gray-100'
+      >
+        <Trash2 className='w-4 h-4' />
+        Permanently Delete
+      </button>
+    </div>
+  </div>
+);
 
 export default UserManagement;

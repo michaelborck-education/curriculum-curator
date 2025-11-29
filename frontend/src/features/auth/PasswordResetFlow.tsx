@@ -1,13 +1,7 @@
 import { useState } from 'react';
-import {
-  ArrowLeft,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
-  Mail,
-  KeyRound,
-} from 'lucide-react';
+import { ArrowLeft, Mail, KeyRound, CheckCircle } from 'lucide-react';
 import api from '../../services/api';
+import { Modal, Alert, Button, FormInput } from '../../components/ui';
 
 interface PasswordResetFlowProps {
   onClose: () => void;
@@ -37,7 +31,10 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
       if (response.status === 200) {
         setCurrentStep('verify');
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { detail?: string } };
+      };
       if (error.response?.status === 404) {
         setError('Email not found');
       } else if (error.response?.data?.detail) {
@@ -63,7 +60,10 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
       if (response.status === 200) {
         setCurrentStep('reset');
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { detail?: string } };
+      };
       if (error.response?.status === 400) {
         setError('Invalid or expired code');
       } else if (error.response?.data?.detail) {
@@ -114,7 +114,8 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
           onSuccess();
         }, 2000);
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
       if (error.response?.data?.detail) {
         setError(error.response.data.detail);
       } else {
@@ -145,45 +146,24 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
 
             <form onSubmit={handleRequestReset} className='space-y-4'>
               {error && (
-                <div className='p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-                  <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-                  <p className='text-sm text-red-600'>{error}</p>
-                </div>
+                <Alert variant='error' onDismiss={() => setError('')}>
+                  {error}
+                </Alert>
               )}
 
-              <div>
-                <label
-                  htmlFor='email'
-                  className='block text-sm font-medium text-gray-700 mb-1'
-                >
-                  Email Address
-                </label>
-                <input
-                  type='email'
-                  id='email'
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500'
-                  placeholder='john@example.com'
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <button
-                type='submit'
+              <FormInput
+                label='Email Address'
+                type='email'
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder='john@example.com'
+                required
                 disabled={isLoading}
-                className='w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className='w-4 h-4 animate-spin' />
-                    Sending Code...
-                  </>
-                ) : (
-                  'Send Reset Code'
-                )}
-              </button>
+              />
+
+              <Button type='submit' loading={isLoading} className='w-full'>
+                Send Reset Code
+              </Button>
             </form>
           </>
         );
@@ -210,48 +190,33 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
 
             <form onSubmit={handleVerifyCode} className='space-y-4'>
               {error && (
-                <div className='p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-                  <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-                  <p className='text-sm text-red-600'>{error}</p>
-                </div>
+                <Alert variant='error' onDismiss={() => setError('')}>
+                  {error}
+                </Alert>
               )}
 
-              <div>
-                <label
-                  htmlFor='code'
-                  className='block text-sm font-medium text-gray-700 mb-1'
-                >
-                  Verification Code
-                </label>
-                <input
-                  type='text'
-                  id='code'
-                  value={code}
-                  onChange={e =>
-                    setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 text-center text-lg font-semibold'
-                  placeholder='000000'
-                  required
-                  disabled={isLoading}
-                  maxLength={6}
-                />
-              </div>
+              <FormInput
+                label='Verification Code'
+                type='text'
+                value={code}
+                onChange={e =>
+                  setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                className='text-center text-lg font-semibold'
+                placeholder='000000'
+                required
+                disabled={isLoading}
+                maxLength={6}
+              />
 
-              <button
+              <Button
                 type='submit'
-                disabled={isLoading || code.length !== 6}
-                className='w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                loading={isLoading}
+                disabled={code.length !== 6}
+                className='w-full'
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className='w-4 h-4 animate-spin' />
-                    Verifying...
-                  </>
-                ) : (
-                  'Verify Code'
-                )}
-              </button>
+                Verify Code
+              </Button>
             </form>
           </>
         );
@@ -273,67 +238,35 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
 
             <form onSubmit={handleResetPassword} className='space-y-4'>
               {error && (
-                <div className='p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-                  <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-                  <p className='text-sm text-red-600'>{error}</p>
-                </div>
+                <Alert variant='error' onDismiss={() => setError('')}>
+                  {error}
+                </Alert>
               )}
 
-              <div>
-                <label
-                  htmlFor='newPassword'
-                  className='block text-sm font-medium text-gray-700 mb-1'
-                >
-                  New Password
-                </label>
-                <input
-                  type='password'
-                  id='newPassword'
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500'
-                  placeholder='••••••••'
-                  required
-                  disabled={isLoading}
-                />
-                <p className='mt-1 text-xs text-gray-500'>
-                  At least 8 characters with uppercase, lowercase, and number
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor='confirmPassword'
-                  className='block text-sm font-medium text-gray-700 mb-1'
-                >
-                  Confirm Password
-                </label>
-                <input
-                  type='password'
-                  id='confirmPassword'
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500'
-                  placeholder='••••••••'
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <button
-                type='submit'
+              <FormInput
+                label='New Password'
+                type='password'
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder='••••••••'
+                hint='At least 8 characters with uppercase, lowercase, and number'
+                required
                 disabled={isLoading}
-                className='w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className='w-4 h-4 animate-spin' />
-                    Resetting Password...
-                  </>
-                ) : (
-                  'Reset Password'
-                )}
-              </button>
+              />
+
+              <FormInput
+                label='Confirm Password'
+                type='password'
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder='••••••••'
+                required
+                disabled={isLoading}
+              />
+
+              <Button type='submit' loading={isLoading} className='w-full'>
+                Reset Password
+              </Button>
             </form>
           </>
         );
@@ -357,34 +290,9 @@ const PasswordResetFlow = ({ onClose, onSuccess }: PasswordResetFlowProps) => {
   };
 
   return (
-    <div className='fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50'>
-      <div className='bg-white rounded-lg shadow-xl max-w-md w-full mx-4'>
-        <div className='flex justify-between items-center p-6 border-b'>
-          <h3 className='text-lg font-medium text-gray-900'>Password Reset</h3>
-          <button
-            onClick={onClose}
-            className='text-gray-400 hover:text-gray-500 transition-colors'
-          >
-            <span className='sr-only'>Close</span>
-            <svg
-              className='w-6 h-6'
-              fill='none'
-              viewBox='0 0 24 24'
-              stroke='currentColor'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M6 18L18 6M6 6l12 12'
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className='p-6'>{renderStep()}</div>
-      </div>
-    </div>
+    <Modal isOpen={true} onClose={onClose} title='Password Reset'>
+      {renderStep()}
+    </Modal>
   );
 };
 

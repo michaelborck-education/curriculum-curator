@@ -2,14 +2,17 @@
 System settings model for admin-configurable application settings
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text
-from sqlalchemy.orm import validates
+from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
 
 
 class SystemSettings(Base):
@@ -17,29 +20,38 @@ class SystemSettings(Base):
 
     __tablename__ = "system_settings"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    key = Column(String(255), unique=True, nullable=False, index=True)
-    value = Column(Text, nullable=True)
-    description = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+    key: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    value: Mapped[str | None] = mapped_column(Text, default=None)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    def __repr__(self):
-        return f"<SystemSettings(id={self.id}, key='{self.key}', value='{self.value[:50]}...')>"
+    def __repr__(self) -> str:
+        value_str = str(self.value)[:50] if self.value else ""
+        return (
+            f"<SystemSettings(id={self.id}, key='{self.key}', value='{value_str}...')>"
+        )
 
     @validates("key")
-    def validate_key(self, key, value):
+    def validate_key(self, key: str, value: Any) -> str:
         """Validate setting key format"""
         if not value:
             raise ValueError("Setting key cannot be empty")
 
         # Convert to lowercase and replace spaces with underscores
-        value = value.lower().replace(" ", "_").replace("-", "_")
+        value = str(value).lower().replace(" ", "_").replace("-", "_")
 
         # Only allow alphanumeric characters and underscores
         if not all(c.isalnum() or c == "_" for c in value):
@@ -50,7 +62,7 @@ class SystemSettings(Base):
         return value
 
     @classmethod
-    def get_default_settings(cls):
+    def get_default_settings(cls) -> list[dict[str, str]]:
         """Get default system settings to be seeded"""
         return [
             {

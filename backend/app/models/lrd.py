@@ -2,15 +2,22 @@
 Learning Requirements Document (LRD) model
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, DateTime, ForeignKey, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.task_list import TaskList
+    from app.models.unit import Unit
 
 
 class LRDStatus(str, Enum):
@@ -27,28 +34,40 @@ class LRD(Base):
 
     __tablename__ = "lrds"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    course_id = Column(GUID(), ForeignKey("courses.id"), nullable=False, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+    unit_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("units.id"), nullable=False, index=True
+    )
 
     # LRD metadata
-    version = Column(String(20), nullable=False, default="1.0")
-    status = Column(String(20), default=LRDStatus.DRAFT.value, nullable=False)
+    version: Mapped[str] = mapped_column(String(20), nullable=False, default="1.0")
+    status: Mapped[str] = mapped_column(
+        String(20), default=LRDStatus.DRAFT.value, nullable=False
+    )
 
     # LRD content (structured JSON)
-    content = Column(JSON, nullable=False)  # Complete LRD content
-    approval_history = Column(JSON, nullable=True)  # Approval tracking
+    content: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False
+    )  # Complete LRD content
+    approval_history: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Approval tracking
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now(), nullable=False
     )
 
     # Relationships
-    course = relationship("Course", back_populates="lrds")
-    task_lists = relationship(
+    unit: Mapped[Unit] = relationship("Unit", back_populates="lrds")
+    task_lists: Mapped[list[TaskList]] = relationship(
         "TaskList", back_populates="lrd", cascade="all, delete-orphan"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<LRD(id={self.id}, version='{self.version}', status='{self.status}')>"

@@ -45,12 +45,12 @@ export const register = (
 export const generateContent = (
   type: ContentType,
   pedagogy: PedagogyType,
-  context: string
+  topic: string
 ): Promise<ApiResponse> =>
   api.post('/llm/generate', {
     content_type: type,
     pedagogy_style: pedagogy,
-    context,
+    topic,
   });
 
 export const enhanceContent = (
@@ -78,6 +78,14 @@ export const deleteUnit = (id: string): Promise<ApiResponse> =>
   api.delete(`/units/${id}`);
 
 // Content management
+export const getContents = (unitId?: string): Promise<ApiResponse> => {
+  const params = unitId ? `?unit_id=${unitId}` : '';
+  return api.get(`/content${params}`);
+};
+
+export const getContent = (contentId: string): Promise<ApiResponse> =>
+  api.get(`/content/${contentId}`);
+
 export const createContent = (data: {
   title: string;
   type: string;
@@ -89,7 +97,7 @@ export const createContent = (data: {
 }): Promise<ApiResponse> => api.post('/content', data);
 
 export const updateContent = (
-  content_id: string,
+  contentId: string,
   data: {
     title?: string;
     content_markdown?: string;
@@ -97,7 +105,10 @@ export const updateContent = (
     difficulty_level?: string;
     estimated_duration_minutes?: number;
   }
-): Promise<ApiResponse> => api.put(`/content/${content_id}`, data);
+): Promise<ApiResponse> => api.put(`/content/${contentId}`, data);
+
+export const deleteContent = (contentId: string): Promise<ApiResponse> =>
+  api.delete(`/content/${contentId}`);
 
 // File upload
 export const uploadFile = (file: File): Promise<ApiResponse> => {

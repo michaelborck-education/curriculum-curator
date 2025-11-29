@@ -204,6 +204,9 @@ async def verify_email(
             detail=error_message or "Email verification failed",
         )
 
+    # Type narrowing: if success is True, user must exist
+    assert user is not None
+
     # Send welcome email
     await email_service.send_welcome_email(user)
 
@@ -307,7 +310,7 @@ async def login(
         email=email,
         ip_address=client_ip,
         user_agent=user_agent,
-        success=login_success,
+        success=bool(login_success),
         user=user,
         failure_reason="Invalid credentials" if not login_success else None,
     )
@@ -330,6 +333,9 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Type narrowing: if login_success is True, user must exist
+    assert user is not None
 
     if not user.is_active:
         raise HTTPException(
@@ -429,6 +435,9 @@ async def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=error_message or "Invalid or expired reset code",
         )
+
+    # Type narrowing: if success is True, user must exist
+    assert user is not None
 
     try:
         # Update password

@@ -2,7 +2,7 @@
 Monitoring and health check endpoints
 """
 
-import os
+import sys
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,7 +12,6 @@ from sqlalchemy import and_, text
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.core.config import settings
 from app.models import LoginAttempt, SecurityLog, User, UserRole
 
 router = APIRouter()
@@ -27,7 +26,7 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "curriculum-curator-backend",
-        "version": settings.VERSION if hasattr(settings, "VERSION") else "1.0.0",
+        "version": "1.0.0",
     }
 
 
@@ -100,7 +99,7 @@ async def detailed_health_check(
         failed_attempts = (
             db.query(LoginAttempt)
             .filter(LoginAttempt.attempted_at > one_hour_ago)
-            .filter(not LoginAttempt.success)
+            .filter(LoginAttempt.success == False)  # noqa: E712
             .count()
         )
 
@@ -145,7 +144,7 @@ async def get_metrics(
         LoginAttempt.attempted_at > one_day_ago
     )
     successful_logins = login_attempts.filter(LoginAttempt.success).count()
-    failed_logins = login_attempts.filter(not LoginAttempt.success).count()
+    failed_logins = login_attempts.filter(LoginAttempt.success == False).count()  # noqa: E712
 
     metrics["authentication"] = {
         "successful_logins": successful_logins,
@@ -182,7 +181,7 @@ async def get_metrics(
         "cpu_percent": psutil.cpu_percent(interval=1),
         "memory_percent": psutil.virtual_memory().percent,
         "disk_percent": psutil.disk_usage("/").percent,
-        "python_version": os.sys.version.split()[0],
+        "python_version": sys.version.split()[0],
     }
 
     return metrics
@@ -204,7 +203,7 @@ async def get_alerts(
     recent_failures = (
         db.query(LoginAttempt)
         .filter(LoginAttempt.attempted_at > one_hour_ago)
-        .filter(not LoginAttempt.success)
+        .filter(LoginAttempt.success == False)  # noqa: E712
         .count()
     )
 
@@ -280,7 +279,7 @@ async def get_alerts(
     rapid_attempts = (
         db.query(LoginAttempt)
         .filter(LoginAttempt.attempted_at > fifteen_min_ago)
-        .filter(not LoginAttempt.success)
+        .filter(LoginAttempt.success == False)  # noqa: E712
         .group_by(LoginAttempt.ip_address)
         .having(text("COUNT(*) > 10"))
         .count()

@@ -261,14 +261,15 @@ class PDFParserService:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
             # Extract metadata
+            doc_meta = doc.metadata or {}
             metadata = PDFMetadata(
-                title=doc.metadata.get("title"),
-                author=doc.metadata.get("author"),
-                subject=doc.metadata.get("subject"),
-                creator=doc.metadata.get("creator"),
-                producer=doc.metadata.get("producer"),
-                creation_date=doc.metadata.get("creationDate"),
-                modification_date=doc.metadata.get("modDate"),
+                title=doc_meta.get("title"),
+                author=doc_meta.get("author"),
+                subject=doc_meta.get("subject"),
+                creator=doc_meta.get("creator"),
+                producer=doc_meta.get("producer"),
+                creation_date=doc_meta.get("creationDate"),
+                modification_date=doc_meta.get("modDate"),
                 page_count=doc.page_count,
                 has_annotations=any(page.first_annot for page in doc),
             )
@@ -285,9 +286,10 @@ class PDFParserService:
             pages = []
             full_text_parts = []
 
-            for i, page in enumerate(doc):
+            for i in range(doc.page_count):
+                page = doc[i]
                 # Extract text with layout preservation
-                text = page.get_text("text")
+                text = str(page.get_text("text"))
 
                 # Extract text blocks for structure analysis
                 blocks = page.get_text("blocks")

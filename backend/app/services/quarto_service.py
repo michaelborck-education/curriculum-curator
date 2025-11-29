@@ -104,7 +104,7 @@ class QuartoService:
                 yaml_content = self.generate_yaml_from_simple(settings or {})
             else:
                 # Advanced mode - use provided YAML
-                yaml_content = settings.get("yaml", "")
+                yaml_content = (settings or {}).get("yaml", "")
 
             # Create the .qmd file with front matter and content
             qmd_file = temp_dir / f"{render_id}.qmd"

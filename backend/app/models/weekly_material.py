@@ -5,20 +5,19 @@ Weekly Material model for course content management
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import (
-    JSON,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.assessment import Assessment
+    from app.models.learning_outcome import UnitLearningOutcome
+    from app.models.learning_outcomes import LocalLearningOutcome
+    from app.models.unit import Unit
 
 
 class MaterialType(str, Enum):
@@ -50,63 +49,65 @@ class WeeklyMaterial(Base):
 
     __tablename__ = "weekly_materials"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    # Primary key
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Parent relationships
-    unit_id = Column(GUID(), ForeignKey("units.id"), nullable=False, index=True)
-    week_number = Column(Integer, nullable=False, index=True)
+    unit_id: Mapped[str] = mapped_column(GUID(), ForeignKey("units.id"), index=True)
+    week_number: Mapped[int] = mapped_column(index=True)
 
     # Material details
-    title = Column(String(500), nullable=False)
-    type = Column(String(50), nullable=False, index=True)  # MaterialType enum
-    description = Column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(String(500))
+    type: Mapped[str] = mapped_column(String(50), index=True)  # MaterialType enum
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Content and metadata
-    duration_minutes = Column(Integer, nullable=True)  # Estimated time to complete
-    file_path = Column(String(500), nullable=True)  # Path to git-stored content
-    material_metadata = Column(
-        "metadata", JSON, nullable=True
-    )  # Additional data (pages, questions, etc.)
+    duration_minutes: Mapped[int | None] = mapped_column(nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    material_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", nullable=True
+    )
 
     # Organization
-    order_index = Column(Integer, nullable=False, default=0)
-    status = Column(
-        String(20), nullable=False, default=MaterialStatus.DRAFT.value, index=True
+    order_index: Mapped[int] = mapped_column(default=0)
+    status: Mapped[str] = mapped_column(
+        String(20), default=MaterialStatus.DRAFT.value, index=True
     )
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
 
     # Relationships
-    unit = relationship("Unit", back_populates="weekly_materials")
+    unit: Mapped["Unit"] = relationship(back_populates="weekly_materials")
 
     # Local learning outcomes (material-specific)
-    local_outcomes = relationship(
-        "LocalLearningOutcome", back_populates="material", cascade="all, delete-orphan"
+    local_outcomes: Mapped[list["LocalLearningOutcome"]] = relationship(
+        back_populates="material", cascade="all, delete-orphan"
     )
 
     # Many-to-many with ULOs through mapping table
-    learning_outcomes = relationship(
-        "UnitLearningOutcome", secondary="material_ulo_mappings", backref="materials"
+    learning_outcomes: Mapped[list["UnitLearningOutcome"]] = relationship(
+        secondary="material_ulo_mappings", backref="materials"
     )
 
     # Many-to-many with assessments through mapping table
-    assessments = relationship(
-        "Assessment",
+    assessments: Mapped[list["Assessment"]] = relationship(
         secondary="assessment_material_links",
         back_populates="linked_materials",
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<WeeklyMaterial(id={self.id}, title='{self.title}', week={self.week_number}, type='{self.type}')>"
 
     @property
     def is_complete(self) -> bool:
         """Check if material is complete"""
-        return self.status in [
+        return str(self.status) in [
             MaterialStatus.COMPLETE.value,
             MaterialStatus.PUBLISHED.value,
         ]
@@ -119,11 +120,11 @@ class WeeklyMaterial(Base):
         return 0.0
 
     @property
-    def metadata_dict(self) -> dict:
+    def metadata_dict(self) -> dict[str, Any]:
         """Get metadata as dictionary"""
         return self.material_metadata or {}
 
-    def get_metadata(self, key: str, default=None):
+    def get_metadata(self, key: str, default: Any = None) -> Any:
         """Get specific metadata value"""
         if self.material_metadata:
             return self.material_metadata.get(key, default)

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.models.user import User
+from app.models.weekly_material import WeeklyMaterial
 from app.schemas.learning_outcomes import LLOResponse, ULOResponse
 from app.schemas.materials import (
     MaterialCreate,
@@ -27,6 +28,56 @@ from app.services.materials_service import materials_service
 router = APIRouter()
 
 
+# =============================================================================
+# Response Helpers
+# =============================================================================
+
+
+def _to_material_response(material: WeeklyMaterial) -> MaterialResponse:
+    """Convert a WeeklyMaterial model to MaterialResponse schema."""
+    return MaterialResponse(
+        id=str(material.id),
+        unit_id=str(material.unit_id),
+        week_number=material.week_number,
+        title=material.title,
+        type=material.type,
+        description=material.description,
+        duration_minutes=material.duration_minutes,
+        file_path=material.file_path,
+        material_metadata=material.material_metadata,
+        order_index=material.order_index,
+        status=material.status,
+        created_at=material.created_at,
+        updated_at=material.updated_at,
+    )
+
+
+def _to_ulo_response(ulo: Any) -> ULOResponse:
+    """Convert a UnitLearningOutcome model to ULOResponse schema."""
+    return ULOResponse(
+        id=str(ulo.id),
+        unit_id=str(ulo.unit_id),
+        code=ulo.outcome_code,
+        description=ulo.outcome_text,
+        bloom_level=ulo.bloom_level,
+        order_index=ulo.sequence_order,
+        created_at=ulo.created_at,
+        updated_at=ulo.updated_at,
+    )
+
+
+def _to_llo_response(llo: Any) -> LLOResponse:
+    """Convert a LocalLearningOutcome model to LLOResponse schema."""
+    return LLOResponse(
+        id=str(llo.id),
+        material_id=str(llo.material_id),
+        description=llo.description,
+        order_index=llo.order_index,
+        created_at=llo.created_at,
+        updated_at=llo.updated_at,
+    )
+
+
 @router.post("/units/{unit_id}/materials", response_model=MaterialResponse)
 async def create_material(
     unit_id: UUID,
@@ -41,22 +92,7 @@ async def create_material(
             unit_id=unit_id,
             material_data=material_data,
         )
-
-        return MaterialResponse(
-            id=str(material.id),
-            unit_id=str(material.unit_id),
-            week_number=material.week_number,
-            title=material.title,
-            type=material.type,
-            description=material.description,
-            duration_minutes=material.duration_minutes,
-            file_path=material.file_path,
-            material_metadata=material.material_metadata,
-            order_index=material.order_index,
-            status=material.status,
-            created_at=material.created_at,
-            updated_at=material.updated_at,
-        )
+        return _to_material_response(material)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -88,24 +124,7 @@ async def get_unit_materials(
         filter_params=filter_params,
     )
 
-    return [
-        MaterialResponse(
-            id=str(mat.id),
-            unit_id=str(mat.unit_id),
-            week_number=mat.week_number,
-            title=mat.title,
-            type=mat.type,
-            description=mat.description,
-            duration_minutes=mat.duration_minutes,
-            file_path=mat.file_path,
-            material_metadata=mat.material_metadata,
-            order_index=mat.order_index,
-            status=mat.status,
-            created_at=mat.created_at,
-            updated_at=mat.updated_at,
-        )
-        for mat in materials
-    ]
+    return [_to_material_response(mat) for mat in materials]
 
 
 @router.get(

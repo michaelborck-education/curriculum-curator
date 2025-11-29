@@ -106,7 +106,7 @@ class EmailService:
                 MAIL_SSL_TLS=smtp_settings["use_ssl"],
                 USE_CREDENTIALS=bool(smtp_settings["username"]),
                 VALIDATE_CERTS=self.smtp_config.validate_certs,
-                TEMPLATE_FOLDER=self.template_dir,
+                TEMPLATE_FOLDER=Path(self.template_dir),
             )
 
             self.fast_mail = FastMail(self.config)
@@ -322,9 +322,9 @@ The {settings.APP_NAME} Team
 
             message = MessageSchema(
                 subject=f"Welcome to {settings.APP_NAME} - Verify Your Email",
-                recipients=recipients,
-                body=text_body,
-                html=html_body,
+                recipients=recipients,  # type: ignore[arg-type]
+                body=html_body,
+                alternative_body=text_body,
                 subtype=MessageType.html,
             )
 
@@ -415,9 +415,9 @@ The {settings.APP_NAME} Security Team
 
             message = MessageSchema(
                 subject=f"Password Reset - {settings.APP_NAME}",
-                recipients=recipients,
-                body=text_body,
-                html=html_body,
+                recipients=recipients,  # type: ignore[arg-type]
+                body=html_body,
+                alternative_body=text_body,
                 subtype=MessageType.html,
             )
 
@@ -518,9 +518,9 @@ The {settings.APP_NAME} Team
 
             message = MessageSchema(
                 subject=f"🎉 Account Activated - Welcome to {settings.APP_NAME}!",
-                recipients=recipients,
-                body=text_body,
-                html=html_body,
+                recipients=recipients,  # type: ignore[arg-type]
+                body=html_body,
+                alternative_body=text_body,
                 subtype=MessageType.html,
             )
 

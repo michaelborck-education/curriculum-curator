@@ -46,12 +46,12 @@ class WorkflowStructureCreator:
                 title=f"{unit.code} - {unit.title}",
                 description=unit.description or "",
                 duration_weeks=unit.duration_weeks,
-                delivery_mode=session.decisions_made.get("delivery_mode", {}).get(
-                    "value", "Blended"
-                ),
-                teaching_pattern=session.decisions_made.get("weekly_structure", {}).get(
-                    "value", "Lecture + Tutorial"
-                ),
+                delivery_mode=(session.decisions_made or {})
+                .get("delivery_mode", {})
+                .get("value", "Blended"),
+                teaching_pattern=(session.decisions_made or {})
+                .get("weekly_structure", {})
+                .get("value", "Lecture + Tutorial"),
                 is_complete=False,
                 completion_percentage=0,
             )

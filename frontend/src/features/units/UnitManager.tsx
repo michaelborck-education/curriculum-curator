@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -9,7 +9,6 @@ import {
   Edit,
   Trash2,
   FileText,
-  Loader2,
   CheckCircle,
   Clock,
   Target,
@@ -20,52 +19,102 @@ import api, {
   deleteUnit as deleteUnitApi,
 } from '../../services/api';
 
+// Import shared UI components
+import {
+  Modal,
+  Alert,
+  Button,
+  LoadingState,
+  EmptyState,
+  FormInput,
+  FormTextarea,
+  FormSelect,
+} from '../../components/ui';
+import { useModal } from '../../hooks';
+
 // Import Unit type from global types
 import type { Unit } from '../../types';
 
+interface UnitFormData {
+  title: string;
+  code: string;
+  description: string;
+  year: number;
+  semester: string;
+  pedagogyType: string;
+  difficultyLevel: string;
+  durationWeeks: number;
+  creditPoints: number;
+  prerequisites: string;
+  learningHours: number;
+}
+
+const initialFormData: UnitFormData = {
+  title: '',
+  code: '',
+  description: '',
+  year: new Date().getFullYear(),
+  semester: 'semester_1',
+  pedagogyType: 'inquiry-based',
+  difficultyLevel: 'intermediate',
+  durationWeeks: 12,
+  creditPoints: 25,
+  prerequisites: '',
+  learningHours: 150,
+};
+
+const semesterOptions = [
+  { value: 'semester_1', label: 'Semester 1' },
+  { value: 'semester_2', label: 'Semester 2' },
+  { value: 'summer', label: 'Summer' },
+  { value: 'winter', label: 'Winter' },
+];
+
+const pedagogyOptions = [
+  { value: 'inquiry-based', label: 'Inquiry Based' },
+  { value: 'project-based', label: 'Project Based' },
+  { value: 'traditional', label: 'Traditional' },
+  { value: 'collaborative', label: 'Collaborative' },
+  { value: 'game-based', label: 'Game Based' },
+  { value: 'constructivist', label: 'Constructivist' },
+  { value: 'problem-based', label: 'Problem Based' },
+  { value: 'experiential', label: 'Experiential' },
+  { value: 'competency-based', label: 'Competency Based' },
+];
+
+const difficultyOptions = [
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+];
+
 const UnitManager = () => {
   const navigate = useNavigate();
+  const createModal = useModal();
+
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [systemDefaults, setSystemDefaults] = useState({
     creditPoints: 25,
     durationWeeks: 12,
   });
-  const [newUnit, setNewUnit] = useState({
-    title: '',
-    code: '',
-    description: '',
-    year: new Date().getFullYear(),
-    semester: 'semester_1',
-    pedagogyType: 'inquiry-based',
-    difficultyLevel: 'intermediate',
-    durationWeeks: 12,
-    creditPoints: 25,
-    prerequisites: '',
-    learningHours: 150,
-  });
-  const [errors, setErrors] = useState<any>({});
+  const [newUnit, setNewUnit] = useState<UnitFormData>(initialFormData);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    fetchUnits();
-    fetchSystemDefaults();
-  }, []);
-
-  const fetchUnits = async () => {
+  const fetchUnits = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getUnitsApi();
-      // The backend returns an array directly, not wrapped in an object
       setUnits(Array.isArray(response.data) ? response.data : []);
     } catch {
       // Handle error silently
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchSystemDefaults = async () => {
+  const fetchSystemDefaults = useCallback(async () => {
     try {
       const response = await api.get('/admin/settings');
       if (response.data) {
@@ -74,7 +123,6 @@ const UnitManager = () => {
           durationWeeks: response.data.defaultDurationWeeks || 12,
         };
         setSystemDefaults(defaults);
-        // Update the newUnit state with fetched defaults
         setNewUnit(prev => ({
           ...prev,
           creditPoints: defaults.creditPoints,
@@ -83,21 +131,24 @@ const UnitManager = () => {
       }
     } catch {
       // Use default values if settings can't be fetched
-      // This might happen for non-admin users
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUnits();
+    fetchSystemDefaults();
+  }, [fetchUnits, fetchSystemDefaults]);
 
   const createUnit = async () => {
+    setError(null);
+
+    if (!newUnit.title || !newUnit.code) {
+      setError('Unit title and code are required');
+      return;
+    }
+
     try {
-      setErrors({});
-
-      // Validate required fields
-      if (!newUnit.title || !newUnit.code) {
-        setErrors({ general: 'Unit title and code are required' });
-        return;
-      }
-
-      // Map frontend fields to backend schema
+      setCreating(true);
       const unitData = {
         title: newUnit.title,
         code: newUnit.code,
@@ -114,97 +165,73 @@ const UnitManager = () => {
       };
 
       const response = await createUnitApi(unitData);
-
-      // Add the new unit to the list
       setUnits([...units, response.data]);
-      setShowCreateModal(false);
-      setNewUnit({
-        title: '',
-        code: '',
-        description: '',
-        year: new Date().getFullYear(),
-        semester: 'semester_1',
-        pedagogyType: 'inquiry-based',
-        difficultyLevel: 'intermediate',
-        durationWeeks: systemDefaults.durationWeeks,
-        creditPoints: systemDefaults.creditPoints,
-        prerequisites: '',
-        learningHours: 150,
-      });
-    } catch (error: any) {
-      const errorDetail = error.response?.data?.detail;
-      if (typeof errorDetail === 'string') {
-        setErrors({ general: errorDetail });
-      } else if (Array.isArray(errorDetail)) {
-        // Handle validation errors from FastAPI
-        const fieldErrors: any = {};
-        const generalErrors: string[] = [];
-
-        errorDetail.forEach((err: any) => {
-          // Check if error has location info for specific field
-          if (err.loc && err.loc.length > 1) {
-            const fieldName = err.loc[err.loc.length - 1];
-            // Map backend field names to user-friendly names
-            const fieldMapping: any = {
-              creditPoints: 'Credit Points',
-              durationWeeks: 'Duration',
-              learningHours: 'Learning Hours',
-              title: 'Unit Title',
-              code: 'Unit Code',
-              year: 'Year',
-            };
-            const displayName = fieldMapping[fieldName] || fieldName;
-
-            // Extract the validation constraint from the error message
-            let errorMsg = err.msg || 'Invalid value';
-            if (errorMsg.includes('less than or equal to')) {
-              const match = errorMsg.match(/less than or equal to (\d+)/);
-              if (match) {
-                errorMsg = `Must be ${match[1]} or less`;
-              }
-            } else if (errorMsg.includes('greater than or equal to')) {
-              const match = errorMsg.match(/greater than or equal to (\d+)/);
-              if (match) {
-                errorMsg = `Must be ${match[1]} or more`;
-              }
-            }
-
-            fieldErrors[fieldName] = `${displayName}: ${errorMsg}`;
-          } else {
-            generalErrors.push(err.msg || err.message);
-          }
-        });
-
-        // Combine field-specific and general errors
-        const allErrors = [...Object.values(fieldErrors), ...generalErrors];
-        setErrors({ general: allErrors.join('. ') });
-      } else if (errorDetail) {
-        setErrors(errorDetail);
-      } else {
-        setErrors({
-          general:
-            'Failed to create unit. Please check all required fields and try again.',
-        });
-      }
+      createModal.close();
+      resetForm();
+    } catch (err: unknown) {
+      const errorMessage = extractErrorMessage(err);
+      setError(errorMessage);
+    } finally {
+      setCreating(false);
     }
   };
 
-  const openCreateModal = () => {
+  const extractErrorMessage = (err: unknown): string => {
+    const error = err as {
+      response?: {
+        data?: { detail?: string | Array<{ loc?: string[]; msg: string }> };
+      };
+    };
+    const errorDetail = error.response?.data?.detail;
+
+    if (typeof errorDetail === 'string') {
+      return errorDetail;
+    }
+
+    if (Array.isArray(errorDetail)) {
+      const fieldMapping: Record<string, string> = {
+        creditPoints: 'Credit Points',
+        durationWeeks: 'Duration',
+        learningHours: 'Learning Hours',
+        title: 'Unit Title',
+        code: 'Unit Code',
+        year: 'Year',
+      };
+
+      const messages = errorDetail.map(err => {
+        const fieldName = err.loc?.[err.loc.length - 1];
+        const displayName = fieldName
+          ? fieldMapping[fieldName] || fieldName
+          : '';
+        let msg = err.msg || 'Invalid value';
+
+        const lessMatch = msg.match(/less than or equal to (\d+)/);
+        if (lessMatch) msg = `Must be ${lessMatch[1]} or less`;
+
+        const greaterMatch = msg.match(/greater than or equal to (\d+)/);
+        if (greaterMatch) msg = `Must be ${greaterMatch[1]} or more`;
+
+        return displayName ? `${displayName}: ${msg}` : msg;
+      });
+
+      return messages.join('. ');
+    }
+
+    return 'Failed to create unit. Please check all required fields and try again.';
+  };
+
+  const resetForm = () => {
     setNewUnit({
-      title: '',
-      code: '',
-      description: '',
-      year: new Date().getFullYear(),
-      semester: 'semester_1',
-      pedagogyType: 'inquiry-based',
-      difficultyLevel: 'intermediate',
+      ...initialFormData,
       durationWeeks: systemDefaults.durationWeeks,
       creditPoints: systemDefaults.creditPoints,
-      prerequisites: '',
-      learningHours: 150,
     });
-    setErrors({});
-    setShowCreateModal(true);
+    setError(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    createModal.open();
   };
 
   const deleteUnit = async (unitId: string) => {
@@ -219,7 +246,7 @@ const UnitManager = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    const statusConfig: Record<string, { color: string; icon: typeof Edit }> = {
       PLANNING: { color: 'bg-gray-100 text-gray-800', icon: Edit },
       ACTIVE: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
       COMPLETED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
@@ -239,12 +266,12 @@ const UnitManager = () => {
     );
   };
 
+  const updateField = (field: keyof UnitFormData, value: string | number) => {
+    setNewUnit(prev => ({ ...prev, [field]: value }));
+  };
+
   if (loading) {
-    return (
-      <div className='flex justify-center items-center h-64'>
-        <Loader2 className='h-8 w-8 animate-spin text-blue-600' />
-      </div>
-    );
+    return <LoadingState message='Loading units...' />;
   }
 
   return (
@@ -260,32 +287,21 @@ const UnitManager = () => {
             {units.length} unit(s) loaded
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center'
-        >
+        <Button onClick={openCreateModal}>
           <Plus className='h-5 w-5 mr-2' />
           New Unit
-        </button>
+        </Button>
       </div>
 
       {/* Units Grid */}
       {units.length === 0 ? (
-        <div className='bg-white rounded-lg shadow-md p-12 text-center'>
-          <BookOpen className='h-12 w-12 text-gray-400 mx-auto mb-4' />
-          <h3 className='text-lg font-medium text-gray-900 mb-2'>
-            No Units Yet
-          </h3>
-          <p className='text-gray-600 mb-6'>
-            Create your first unit to start building curriculum
-          </p>
-          <button
-            onClick={openCreateModal}
-            className='px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'
-          >
-            Create Your First Unit
-          </button>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title='No Units Yet'
+          description='Create your first unit to start building curriculum'
+          actionLabel='Create Your First Unit'
+          onAction={openCreateModal}
+        />
       ) : (
         <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
           {units.map(unit => (
@@ -423,203 +439,113 @@ const UnitManager = () => {
       )}
 
       {/* Create Unit Modal */}
-      {showCreateModal && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-          <div className='bg-white rounded-lg p-6 max-w-md w-full'>
-            <h2 className='text-xl font-semibold mb-4'>Create New Unit</h2>
+      <Modal
+        isOpen={createModal.isOpen}
+        onClose={createModal.close}
+        title='Create New Unit'
+        size='lg'
+      >
+        {error && (
+          <Alert
+            variant='error'
+            onDismiss={() => setError(null)}
+            className='mb-4'
+          >
+            {error}
+          </Alert>
+        )}
 
-            {errors.general && (
-              <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-lg'>
-                <p className='text-red-800 text-sm'>{errors.general}</p>
-              </div>
-            )}
+        <div className='space-y-4'>
+          <FormInput
+            label='Unit Title'
+            required
+            value={newUnit.title}
+            onChange={e => updateField('title', e.target.value)}
+            placeholder='e.g., Programming Fundamentals'
+          />
 
-            <div className='space-y-4'>
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Unit Title *
-                </label>
-                <input
-                  type='text'
-                  value={newUnit.title}
-                  onChange={e =>
-                    setNewUnit({ ...newUnit, title: e.target.value })
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                  placeholder='e.g., Programming Fundamentals'
-                />
-              </div>
+          <FormInput
+            label='Unit Code'
+            required
+            value={newUnit.code}
+            onChange={e => updateField('code', e.target.value)}
+            placeholder='e.g., CS101'
+          />
 
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Unit Code *
-                </label>
-                <input
-                  type='text'
-                  value={newUnit.code}
-                  onChange={e =>
-                    setNewUnit({ ...newUnit, code: e.target.value })
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                  placeholder='e.g., CS101'
-                />
-              </div>
+          <FormTextarea
+            label='Description'
+            value={newUnit.description}
+            onChange={e => updateField('description', e.target.value)}
+            rows={3}
+            placeholder='Brief description of the unit...'
+          />
 
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Description
-                </label>
-                <textarea
-                  value={newUnit.description}
-                  onChange={e =>
-                    setNewUnit({ ...newUnit, description: e.target.value })
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                  rows={3}
-                  placeholder='Brief description of the unit...'
-                />
-              </div>
+          <div className='grid grid-cols-2 gap-4'>
+            <FormInput
+              label='Year'
+              type='number'
+              value={newUnit.year}
+              onChange={e => updateField('year', parseInt(e.target.value))}
+              min={2020}
+              max={2100}
+            />
 
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
-                    Year
-                  </label>
-                  <input
-                    type='number'
-                    value={newUnit.year}
-                    onChange={e =>
-                      setNewUnit({ ...newUnit, year: parseInt(e.target.value) })
-                    }
-                    className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                    min='2020'
-                    max='2100'
-                  />
-                </div>
-
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
-                    Semester
-                  </label>
-                  <select
-                    value={newUnit.semester}
-                    onChange={e =>
-                      setNewUnit({ ...newUnit, semester: e.target.value })
-                    }
-                    className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                  >
-                    <option value='semester_1'>Semester 1</option>
-                    <option value='semester_2'>Semester 2</option>
-                    <option value='summer'>Summer</option>
-                    <option value='winter'>Winter</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className='grid grid-cols-2 gap-4'>
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
-                    Credit Points
-                  </label>
-                  <input
-                    type='number'
-                    value={newUnit.creditPoints}
-                    onChange={e =>
-                      setNewUnit({
-                        ...newUnit,
-                        creditPoints: parseInt(e.target.value),
-                      })
-                    }
-                    className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                    min='1'
-                    max='100'
-                  />
-                </div>
-
-                <div>
-                  <label className='block text-sm font-medium text-gray-700 mb-1'>
-                    Duration (weeks)
-                  </label>
-                  <input
-                    type='number'
-                    value={newUnit.durationWeeks}
-                    onChange={e =>
-                      setNewUnit({
-                        ...newUnit,
-                        durationWeeks: parseInt(e.target.value),
-                      })
-                    }
-                    className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                    min='1'
-                    max='52'
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Pedagogy Type
-                </label>
-                <select
-                  value={newUnit.pedagogyType}
-                  onChange={e =>
-                    setNewUnit({
-                      ...newUnit,
-                      pedagogyType: e.target.value,
-                    })
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                >
-                  <option value='inquiry-based'>Inquiry Based</option>
-                  <option value='project-based'>Project Based</option>
-                  <option value='traditional'>Traditional</option>
-                  <option value='collaborative'>Collaborative</option>
-                  <option value='game-based'>Game Based</option>
-                  <option value='constructivist'>Constructivist</option>
-                  <option value='problem-based'>Problem Based</option>
-                  <option value='experiential'>Experiential</option>
-                  <option value='competency-based'>Competency Based</option>
-                </select>
-              </div>
-
-              <div>
-                <label className='block text-sm font-medium text-gray-700 mb-1'>
-                  Difficulty Level
-                </label>
-                <select
-                  value={newUnit.difficultyLevel}
-                  onChange={e =>
-                    setNewUnit({
-                      ...newUnit,
-                      difficultyLevel: e.target.value,
-                    })
-                  }
-                  className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500'
-                >
-                  <option value='beginner'>Beginner</option>
-                  <option value='intermediate'>Intermediate</option>
-                  <option value='advanced'>Advanced</option>
-                </select>
-              </div>
-            </div>
-
-            <div className='flex justify-end space-x-3 mt-6'>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className='px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200'
-              >
-                Cancel
-              </button>
-              <button
-                onClick={createUnit}
-                className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'
-              >
-                Create Unit
-              </button>
-            </div>
+            <FormSelect
+              label='Semester'
+              value={newUnit.semester}
+              onChange={e => updateField('semester', e.target.value)}
+              options={semesterOptions}
+            />
           </div>
+
+          <div className='grid grid-cols-2 gap-4'>
+            <FormInput
+              label='Credit Points'
+              type='number'
+              value={newUnit.creditPoints}
+              onChange={e =>
+                updateField('creditPoints', parseInt(e.target.value))
+              }
+              min={1}
+              max={100}
+            />
+
+            <FormInput
+              label='Duration (weeks)'
+              type='number'
+              value={newUnit.durationWeeks}
+              onChange={e =>
+                updateField('durationWeeks', parseInt(e.target.value))
+              }
+              min={1}
+              max={52}
+            />
+          </div>
+
+          <FormSelect
+            label='Pedagogy Type'
+            value={newUnit.pedagogyType}
+            onChange={e => updateField('pedagogyType', e.target.value)}
+            options={pedagogyOptions}
+          />
+
+          <FormSelect
+            label='Difficulty Level'
+            value={newUnit.difficultyLevel}
+            onChange={e => updateField('difficultyLevel', e.target.value)}
+            options={difficultyOptions}
+          />
         </div>
-      )}
+
+        <div className='flex justify-end space-x-3 mt-6'>
+          <Button variant='secondary' onClick={createModal.close}>
+            Cancel
+          </Button>
+          <Button onClick={createUnit} loading={creating}>
+            Create Unit
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

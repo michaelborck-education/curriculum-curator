@@ -1,14 +1,7 @@
-import { useState, useEffect } from 'react';
-import {
-  Plus,
-  Trash2,
-  Mail,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-  Info,
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Mail, Info } from 'lucide-react';
 import api from '../../services/api';
+import { LoadingState, Alert, Button, EmptyState } from '../../components/ui';
 
 interface WhitelistEntry {
   id: string;
@@ -28,23 +21,23 @@ const EmailWhitelist = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    fetchWhitelist();
-  }, []);
-
-  const fetchWhitelist = async () => {
+  const fetchWhitelist = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await api.get('/admin/whitelist');
       setEntries(response.data);
       setError('');
-    } catch (error: any) {
+    } catch (err) {
       setError('Failed to load whitelist');
-      console.error('Error fetching whitelist:', error);
+      console.error('Error fetching whitelist:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchWhitelist();
+  }, [fetchWhitelist]);
 
   const validateEntry = (): boolean => {
     if (!newEntry.trim()) {
@@ -52,7 +45,6 @@ const EmailWhitelist = () => {
       return false;
     }
 
-    // Check for duplicates
     const isDuplicate = entries.some(
       entry => entry.pattern.toLowerCase() === newEntry.toLowerCase()
     );
@@ -82,9 +74,9 @@ const EmailWhitelist = () => {
       setNewEntry('');
       setNewDescription('');
       setSuccess('Email pattern added successfully');
-
       window.setTimeout(() => setSuccess(''), 3000);
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
       if (error.response?.data?.detail) {
         setError(error.response.data.detail);
       } else {
@@ -121,11 +113,7 @@ const EmailWhitelist = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className='flex items-center justify-center h-64'>
-        <Loader2 className='w-8 h-8 animate-spin text-purple-600' />
-      </div>
-    );
+    return <LoadingState message='Loading whitelist...' />;
   }
 
   return (
@@ -140,20 +128,22 @@ const EmailWhitelist = () => {
       </div>
 
       {/* Info Box */}
-      <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3'>
-        <Info className='w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5' />
-        <div className='text-sm text-blue-800'>
-          <p className='font-medium mb-1'>How it works:</p>
-          <ul className='list-disc list-inside space-y-1 text-blue-700'>
-            <li>Add specific email addresses to allow individual users</li>
-            <li>
-              Add domains (e.g., company.com) to allow all emails from that
-              domain
-            </li>
-            <li>Only whitelisted emails can register new accounts</li>
-          </ul>
+      <Alert variant='info'>
+        <div className='flex items-start gap-3'>
+          <Info className='w-5 h-5 flex-shrink-0 mt-0.5' />
+          <div className='text-sm'>
+            <p className='font-medium mb-1'>How it works:</p>
+            <ul className='list-disc list-inside space-y-1'>
+              <li>Add specific email addresses to allow individual users</li>
+              <li>
+                Add domains (e.g., company.com) to allow all emails from that
+                domain
+              </li>
+              <li>Only whitelisted emails can register new accounts</li>
+            </ul>
+          </div>
         </div>
-      </div>
+      </Alert>
 
       {/* Add New Entry */}
       <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-6'>
@@ -162,17 +152,23 @@ const EmailWhitelist = () => {
         </h3>
 
         {error && (
-          <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-            <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-            <p className='text-sm text-red-600'>{error}</p>
-          </div>
+          <Alert
+            variant='error'
+            onDismiss={() => setError('')}
+            className='mb-4'
+          >
+            {error}
+          </Alert>
         )}
 
         {success && (
-          <div className='mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2'>
-            <CheckCircle className='w-5 h-5 text-green-600 flex-shrink-0 mt-0.5' />
-            <p className='text-sm text-green-600'>{success}</p>
-          </div>
+          <Alert
+            variant='success'
+            onDismiss={() => setSuccess('')}
+            className='mb-4'
+          >
+            {success}
+          </Alert>
         )}
 
         <div className='space-y-4'>
@@ -191,23 +187,14 @@ const EmailWhitelist = () => {
               }
             />
 
-            <button
+            <Button
               onClick={handleAdd}
-              disabled={isAdding || !newEntry.trim()}
-              className='px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center gap-2'
+              loading={isAdding}
+              disabled={!newEntry.trim()}
             >
-              {isAdding ? (
-                <>
-                  <Loader2 className='w-4 h-4 animate-spin' />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus className='w-4 h-4' />
-                  Add
-                </>
-              )}
-            </button>
+              <Plus className='w-4 h-4 mr-2' />
+              Add
+            </Button>
           </div>
 
           <input
@@ -230,13 +217,11 @@ const EmailWhitelist = () => {
         </div>
 
         {entries.length === 0 ? (
-          <div className='text-center py-12'>
-            <Mail className='w-12 h-12 text-gray-400 mx-auto mb-4' />
-            <p className='text-gray-500'>No whitelist entries yet</p>
-            <p className='text-sm text-gray-400 mt-1'>
-              Add emails or domains to control who can register
-            </p>
-          </div>
+          <EmptyState
+            icon={Mail}
+            title='No whitelist entries yet'
+            description='Add emails or domains to control who can register'
+          />
         ) : (
           <div className='divide-y divide-gray-200'>
             {entries.map(entry => (

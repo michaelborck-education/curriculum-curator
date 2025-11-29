@@ -400,7 +400,7 @@ class FileImportService:
             return "general", 0.0, scores
 
         # Get the type with highest score
-        detected_type = max(scores, key=scores.get)
+        detected_type = max(scores, key=lambda k: scores.get(k, 0))
 
         # Calculate confidence (0-1 scale)
         # High confidence if one type dominates, low if scores are close

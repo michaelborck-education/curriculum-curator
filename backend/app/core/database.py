@@ -44,14 +44,25 @@ def init_db():
     """
     # Import all models here to ensure they're registered with Base
     # These imports are used by SQLAlchemy to register models with Base.metadata
-    from app.models import (  # pyright: ignore[reportUnusedImport]
+    from app.models import (
         EmailVerification,
         EmailWhitelist,
         PasswordReset,
         SystemSettings,
         User,
     )
-    from app.models.llm_config import (  # pyright: ignore[reportUnusedImport]
+    from app.models.llm_config import (
+        LLMConfiguration,
+        TokenUsageLog,
+    )
+
+    # Use the imports to satisfy type checker
+    _ = (
+        EmailVerification,
+        EmailWhitelist,
+        PasswordReset,
+        SystemSettings,
+        User,
         LLMConfiguration,
         TokenUsageLog,
     )

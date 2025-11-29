@@ -3,25 +3,23 @@ Assessment model for course evaluation management
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import (
-    JSON,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Date, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.learning_outcome import (
+        AssessmentLearningOutcome,
+        UnitLearningOutcome,
+    )
+    from app.models.unit import Unit
+    from app.models.weekly_material import WeeklyMaterial
 
 
 class AssessmentType(str, Enum):
@@ -61,6 +59,7 @@ class AssessmentStatus(str, Enum):
     COMPLETE = "complete"
     NEEDS_REVIEW = "needs_review"
     PUBLISHED = "published"
+    ARCHIVED = "archived"
 
 
 class Assessment(Base):
@@ -68,94 +67,107 @@ class Assessment(Base):
 
     __tablename__ = "assessments"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Parent relationship
-    unit_id = Column(GUID(), ForeignKey("units.id"), nullable=False, index=True)
+    unit_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("units.id"), nullable=False, index=True
+    )
 
     # Basic information
-    title = Column(String(500), nullable=False)
-    type = Column(String(20), nullable=False, index=True)  # AssessmentType enum
-    category = Column(String(50), nullable=False, index=True)  # AssessmentCategory enum
-    weight = Column(
-        Float, nullable=False, default=0.0
+    title: Mapped[str] = mapped_column(String(500))
+    type: Mapped[str] = mapped_column(String(20), index=True)  # AssessmentType enum
+    category: Mapped[str] = mapped_column(
+        String(50), index=True
+    )  # AssessmentCategory enum
+    weight: Mapped[float] = mapped_column(
+        Float, default=0.0
     )  # Percentage of final grade (0-100)
 
     # Descriptions
-    description = Column(Text, nullable=True)  # Brief description
-    specification = Column(Text, nullable=True)  # Detailed requirements
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specification: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timeline
-    release_week = Column(Integer, nullable=True)
-    release_date = Column(Date, nullable=True)
-    due_week = Column(Integer, nullable=True)
-    due_date = Column(Date, nullable=True)
-    duration = Column(String(100), nullable=True)  # e.g., "2 hours", "3 weeks"
+    release_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    release_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    due_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    duration: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # e.g., "2 hours", "3 weeks"
 
     # Assessment details
-    rubric = Column(JSON, nullable=True)  # Rubric structure
-    questions = Column(
+    rubric: Mapped[dict[str, Any] | None] = mapped_column(
+        nullable=True, type_=None
+    )  # Rubric structure
+    questions: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )  # Number of questions (for quizzes/exams)
-    word_count = Column(Integer, nullable=True)  # Required word count (for papers)
-    group_work = Column(Boolean, nullable=False, default=False)
-    submission_type = Column(String(20), nullable=True)  # SubmissionType enum
+    word_count: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )  # Required word count (for papers)
+    group_work: Mapped[bool] = mapped_column(default=False)
+    submission_type: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # SubmissionType enum
 
     # Status
-    status = Column(String(20), nullable=False, default=AssessmentStatus.DRAFT.value)
+    status: Mapped[str] = mapped_column(
+        String(20), default=AssessmentStatus.DRAFT.value
+    )
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
     )
 
     # Relationships
-    unit = relationship("Unit", back_populates="assessments")
+    unit: Mapped["Unit"] = relationship(back_populates="assessments")
 
     # Assessment-specific learning outcomes
-    assessment_outcomes = relationship(
-        "AssessmentLearningOutcome",
+    assessment_outcomes: Mapped[list["AssessmentLearningOutcome"]] = relationship(
         back_populates="assessment",
         cascade="all, delete-orphan",
     )
 
     # Many-to-many with ULOs through mapping table
-    learning_outcomes = relationship(
-        "UnitLearningOutcome",
+    learning_outcomes: Mapped[list["UnitLearningOutcome"]] = relationship(
         secondary="assessment_ulo_mappings",
         backref="assessments",
     )
 
     # Many-to-many with materials through mapping table
-    linked_materials = relationship(
-        "WeeklyMaterial",
+    linked_materials: Mapped[list["WeeklyMaterial"]] = relationship(
         secondary="assessment_material_links",
         back_populates="assessments",
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Assessment(id={self.id}, title='{self.title}', type='{self.type}', weight={self.weight}%)>"
 
     @property
     def is_formative(self) -> bool:
         """Check if assessment is formative"""
-        return self.type == AssessmentType.FORMATIVE.value
+        return str(self.type) == AssessmentType.FORMATIVE.value
 
     @property
     def is_summative(self) -> bool:
         """Check if assessment is summative"""
-        return self.type == AssessmentType.SUMMATIVE.value
+        return str(self.type) == AssessmentType.SUMMATIVE.value
 
     @property
     def is_graded(self) -> bool:
         """Check if assessment has grade weight"""
-        return self.weight > 0
+        return float(self.weight) > 0
 
     @property
     def is_group_assessment(self) -> bool:
         """Check if this is a group assessment"""
-        return self.group_work
+        return bool(self.group_work)
 
     @property
     def timeline_description(self) -> str:
@@ -169,7 +181,7 @@ class Assessment(Base):
             parts.append(f"Duration: {self.duration}")
         return " | ".join(parts) if parts else "No timeline set"
 
-    def get_rubric_criteria(self) -> list:
+    def get_rubric_criteria(self) -> list[dict[str, Any]]:
         """Get rubric criteria if exists"""
         if self.rubric and isinstance(self.rubric, dict):
             return self.rubric.get("criteria", [])

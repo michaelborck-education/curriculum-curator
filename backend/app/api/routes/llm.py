@@ -22,11 +22,15 @@ async def generate_content(
 ):
     """Generate content with AI assistance using user's configured LLM provider"""
     try:
+        # Combine topic and context for the generation prompt
+        # topic is the main subject, context provides additional instructions
+        topic: str = request.topic or request.context or "General educational content"
+
         # Pass user and db to the service so it can determine the right provider
         async def stream_response():
             async for chunk in llm_service.generate_content(
                 pedagogy=request.pedagogy_style,
-                topic=request.context,
+                topic=topic,
                 content_type=request.content_type,
                 user=current_user,
                 db=db,
@@ -39,7 +43,7 @@ async def generate_content(
         result = ""
         async for chunk in llm_service.generate_content(
             pedagogy=request.pedagogy_style,
-            topic=request.context,
+            topic=topic,
             content_type=request.content_type,
             user=current_user,
             db=db,

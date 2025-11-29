@@ -190,7 +190,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         # Process request normally
         return await call_next(request)
 
-    async def _validate_request(self, request: Request) -> Response:
+    async def _validate_request(self, request: Request) -> Response | None:
         """Validate incoming request for security issues"""
 
         # Check request size (basic DoS protection)

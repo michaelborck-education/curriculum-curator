@@ -1,13 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import {
-  ArrowLeft,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-} from 'lucide-react';
+import { ArrowLeft, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
+import { Alert, Button } from '../../components/ui';
 
 interface EmailVerificationFormProps {
   email: string;
@@ -31,12 +26,10 @@ const EmailVerificationForm = ({
   const login = useAuthStore(state => state.login);
 
   useEffect(() => {
-    // Focus first input on mount
     inputRefs.current[0]?.focus();
   }, []);
 
   useEffect(() => {
-    // Resend cooldown timer
     if (resendCooldown > 0) {
       const timer = window.setTimeout(
         () => setResendCooldown(resendCooldown - 1),
@@ -48,20 +41,17 @@ const EmailVerificationForm = ({
   }, [resendCooldown]);
 
   const handleCodeChange = (index: number, value: string) => {
-    // Only allow digits
     if (value && !/^\d$/.test(value)) return;
 
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-    setError(''); // Clear error when typing
+    setError('');
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all digits entered
     if (newCode.every(digit => digit) && index === 5) {
       handleVerify(newCode.join(''));
     }
@@ -71,12 +61,9 @@ const EmailVerificationForm = ({
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>
   ) => {
-    // Handle backspace
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
-
-    // Handle arrow keys
     if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -98,11 +85,9 @@ const EmailVerificationForm = ({
     });
     setCode(newCode);
 
-    // Focus last filled input or last input
     const lastIndex = Math.min(digits.length - 1, 5);
     inputRefs.current[lastIndex]?.focus();
 
-    // Auto-submit if 6 digits pasted
     if (digits.length === 6) {
       handleVerify(digits.join(''));
     }
@@ -128,17 +113,18 @@ const EmailVerificationForm = ({
       if (response.status === 200) {
         setSuccessMessage('Email verified successfully!');
 
-        // Store token and user data
         const { access_token, user } = response.data;
         localStorage.setItem('token', access_token);
         login(user);
 
-        // Call success callback after a short delay
         window.setTimeout(() => {
           onSuccess();
         }, 1500);
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { detail?: string } };
+      };
       if (error.response?.status === 400) {
         setError('Invalid or expired verification code');
       } else if (error.response?.data?.detail) {
@@ -157,14 +143,12 @@ const EmailVerificationForm = ({
     setSuccessMessage('');
 
     try {
-      const response = await api.post('/auth/resend-verification', {
-        email,
-      });
+      const response = await api.post('/auth/resend-verification', { email });
 
       if (response.status === 200) {
         setSuccessMessage('Verification code sent! Check your email.');
-        setResendCooldown(60); // 60 second cooldown
-        setCode(['', '', '', '', '', '']); // Clear code
+        setResendCooldown(60);
+        setCode(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
     } catch {
@@ -198,17 +182,15 @@ const EmailVerificationForm = ({
       </div>
 
       {error && (
-        <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2'>
-          <AlertCircle className='w-5 h-5 text-red-600 flex-shrink-0 mt-0.5' />
-          <p className='text-sm text-red-600'>{error}</p>
-        </div>
+        <Alert variant='error' onDismiss={() => setError('')} className='mb-4'>
+          {error}
+        </Alert>
       )}
 
       {successMessage && (
-        <div className='mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2'>
-          <CheckCircle className='w-5 h-5 text-green-600 flex-shrink-0 mt-0.5' />
-          <p className='text-sm text-green-600'>{successMessage}</p>
-        </div>
+        <Alert variant='success' className='mb-4'>
+          {successMessage}
+        </Alert>
       )}
 
       <div className='mb-6'>
@@ -219,7 +201,9 @@ const EmailVerificationForm = ({
           {code.map((digit, index) => (
             <input
               key={index}
-              ref={el => (inputRefs.current[index] = el)}
+              ref={el => {
+                inputRefs.current[index] = el;
+              }}
               type='text'
               inputMode='numeric'
               pattern='\d*'
@@ -237,25 +221,21 @@ const EmailVerificationForm = ({
         </div>
       </div>
 
-      <button
+      <Button
         onClick={() => handleVerify()}
-        disabled={isLoading || !code.every(digit => digit) || !!successMessage}
-        className='w-full mb-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:bg-purple-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+        loading={isLoading}
+        disabled={!code.every(digit => digit) || !!successMessage}
+        className='w-full mb-4'
       >
-        {isLoading ? (
+        {successMessage ? (
           <>
-            <Loader2 className='w-4 h-4 animate-spin' />
-            Verifying...
-          </>
-        ) : successMessage ? (
-          <>
-            <CheckCircle className='w-4 h-4' />
+            <CheckCircle className='w-4 h-4 mr-2' />
             Verified!
           </>
         ) : (
           'Verify Email'
         )}
-      </button>
+      </Button>
 
       <div className='text-center'>
         <p className='text-sm text-gray-600 mb-2'>
@@ -267,10 +247,7 @@ const EmailVerificationForm = ({
           className='text-purple-600 hover:text-purple-700 font-medium text-sm inline-flex items-center gap-1 transition-colors disabled:text-gray-400 disabled:cursor-not-allowed'
         >
           {isResending ? (
-            <>
-              <Loader2 className='w-4 h-4 animate-spin' />
-              Sending...
-            </>
+            'Sending...'
           ) : resendCooldown > 0 ? (
             `Resend in ${resendCooldown}s`
           ) : (

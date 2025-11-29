@@ -31,15 +31,17 @@ class QuartoExportResponse(CamelModel):
     """Response from content export"""
 
     success: bool
-    render_id: str = Field(alias="renderId")
+    render_id: str
     outputs: list[dict[str, Any]]
-    yaml_used: str = Field(alias="yamlUsed")
+    yaml_used: str
 
 
 class QuartoPreviewRequest(CamelModel):
     """Request for content preview"""
 
-    content: str | None = Field(None, description="Content to preview (uses saved if not provided)")
+    content: str | None = Field(
+        None, description="Content to preview (uses saved if not provided)"
+    )
     settings: dict[str, Any] | None = Field(None, description="Preview settings")
 
 

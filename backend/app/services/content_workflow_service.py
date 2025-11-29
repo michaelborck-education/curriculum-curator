@@ -5,7 +5,7 @@ Clean architecture with proper method calls and error handling
 
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from sqlalchemy.orm import Session
 
@@ -167,6 +167,22 @@ class ContentWorkflowService:
         """Initialize workflow service"""
         self.db = db
 
+    async def get_stage_questions(self, stage: WorkflowStage) -> list[dict[str, Any]]:
+        """Get questions for a specific workflow stage"""
+        questions = self.WORKFLOW_QUESTIONS.get(stage, [])
+        return [
+            {
+                "key": q.key,
+                "question": q.question,
+                "options": q.options,
+                "input_type": q.input_type,
+                "required": q.required,
+                "depends_on": q.depends_on,
+                "stage": q.stage.value,
+            }
+            for q in questions
+        ]
+
     async def create_workflow_session(
         self, unit_id: str, user_id: str, session_name: str | None = None
     ) -> WorkflowChatSession:
@@ -210,7 +226,7 @@ class ContentWorkflowService:
         self.db.refresh(session)
 
         # Auto-fill duration_weeks decision immediately
-        if session.workflow_data.get("duration_weeks"):
+        if session.workflow_data and session.workflow_data.get("duration_weeks"):
             session.add_decision(
                 "duration_weeks", session.workflow_data["duration_weeks"]
             )
@@ -291,7 +307,7 @@ class ContentWorkflowService:
         # Check if current stage is complete
         if await self._is_stage_complete(session):
             # Advance to next stage
-            next_stage = self._get_next_stage(session.current_stage)
+            next_stage = self._get_next_stage(WorkflowStage(session.current_stage))
 
             if next_stage and next_stage != WorkflowStage.COMPLETED:
                 session.advance_stage()
@@ -400,7 +416,7 @@ class ContentWorkflowService:
         session.status = SessionStatus.ACTIVE
 
         # Re-add duration_weeks if available
-        if session.workflow_data.get("duration_weeks"):
+        if session.workflow_data and session.workflow_data.get("duration_weeks"):
             session.add_decision(
                 "duration_weeks", session.workflow_data["duration_weeks"]
             )
@@ -570,7 +586,7 @@ class ContentWorkflowService:
             unit_name=unit.title,
             unit_code=unit.code,
             unit_description=unit.description,
-            duration_weeks=session.workflow_data.get("duration_weeks", 12),
+            duration_weeks=(session.workflow_data or {}).get("duration_weeks", 12),
             unit_type=decisions.get("unit_type", {}).get(
                 "value", "Mixed Theory & Practice"
             ),
@@ -628,8 +644,9 @@ class ContentWorkflowService:
 
             if result and not error:
                 # Convert Pydantic model to dict for database storage
+                # result is UnitStructureResponse since we passed that as response_model
                 return self._convert_llm_response_to_structure(
-                    result, context.duration_weeks
+                    cast("UnitStructureResponse", result), context.duration_weeks
                 )
             # Log error and fall back to template
             print(f"LLM generation failed: {error}")
@@ -700,7 +717,7 @@ class ContentWorkflowService:
         self, session: WorkflowChatSession, unit: Unit, decisions: dict
     ) -> dict[str, Any]:
         """Generate empty structure for manual completion"""
-        num_weeks = int(session.workflow_data.get("duration_weeks", 12))
+        num_weeks = int((session.workflow_data or {}).get("duration_weeks", 12))
 
         # Extract assessment count
         assessment_count_str = decisions.get("assessment_count", {}).get(

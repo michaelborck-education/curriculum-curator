@@ -73,6 +73,29 @@ export type PedagogyType =
   | 'competency-based';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 
+export interface Content {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  unitId: string;
+  parentContentId?: string;
+  orderIndex: number;
+  contentMarkdown: string;
+  summary: string;
+  estimatedDurationMinutes?: number;
+  difficultyLevel?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentListResponse {
+  contents: Content[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
 export interface ContentRequest {
   type: ContentType;
   pedagogy: PedagogyType;

@@ -12,9 +12,6 @@ from .assessment import (
     AssessmentStatus,
     SubmissionType,
 )
-from .assessment import (
-    AssessmentType as NewAssessmentType,
-)
 from .assessment_plan import AssessmentMode, AssessmentPlan, AssessmentType
 from .chat import ChatMessage, ChatRole, ChatSession, ContextScope
 from .chat_session import SessionStatus, WorkflowChatSession, WorkflowStage
@@ -27,11 +24,11 @@ from .email_whitelist import EmailWhitelist
 
 # Generation tracking
 from .generation_history import GenerationHistory, GenerationType
-from .learning_outcome import BloomLevel, OutcomeType, UnitLearningOutcome
-from .learning_outcomes import (
+from .learning_outcome import (
     AssessmentLearningOutcome,
-    LocalLearningOutcome,
-    WeeklyLearningOutcome,
+    BloomLevel,
+    OutcomeType,
+    UnitLearningOutcome,
 )
 from .llm_config import LLMConfiguration, TokenUsageLog
 from .login_attempt import LoginAttempt, LoginAttemptType
@@ -57,7 +54,6 @@ from .user import TeachingPhilosophy, User, UserRole
 # Validation and search models
 from .validation_result import ValidationResult, ValidationStatus
 from .weekly_material import MaterialStatus, WeeklyMaterial
-from .weekly_material import MaterialType as NewMaterialType
 from .weekly_topic import WeeklyTopic, WeekType
 
 # ruff: noqa: RUF022
@@ -133,8 +129,6 @@ __all__ = [
     "AssessmentCategory",
     "AssessmentStatus",
     "SubmissionType",
-    "LocalLearningOutcome",
-    "WeeklyLearningOutcome",
     "AssessmentLearningOutcome",
     "material_ulo_mappings",
     "assessment_ulo_mappings",

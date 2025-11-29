@@ -2,15 +2,22 @@
 Task list model for LRD implementation tracking
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from app.models.lrd import LRD
+    from app.models.unit import Unit
 
 
 class TaskStatus(str, Enum):
@@ -27,36 +34,51 @@ class TaskList(Base):
 
     __tablename__ = "task_lists"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
-    lrd_id = Column(GUID(), ForeignKey("lrds.id"), nullable=True, index=True)
-    course_id = Column(GUID(), ForeignKey("courses.id"), nullable=False, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+    lrd_id: Mapped[str | None] = mapped_column(
+        GUID(), ForeignKey("lrds.id"), index=True, default=None
+    )
+    unit_id: Mapped[str] = mapped_column(
+        GUID(), ForeignKey("units.id"), nullable=False, index=True
+    )
 
     # Task list content
-    tasks = Column(JSON, nullable=False)  # Structured task data
-    status = Column(String(20), default=TaskStatus.PENDING.value, nullable=False)
+    tasks: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False
+    )  # Structured task data
+    status: Mapped[str] = mapped_column(
+        String(20), default=TaskStatus.PENDING.value, nullable=False
+    )
 
     # Progress tracking
-    total_tasks = Column(Integer, default=0, nullable=False)
-    completed_tasks = Column(Integer, default=0, nullable=False)
-    progress = Column(JSON, nullable=True)  # Detailed progress information
+    total_tasks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_tasks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Detailed progress information
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False
     )
-    completed_at = Column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), onupdate=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
     # Relationships
-    course = relationship("Course", back_populates="task_lists")
-    lrd = relationship("LRD", back_populates="task_lists")
+    unit: Mapped[Unit] = relationship("Unit", back_populates="task_lists")
+    lrd: Mapped[LRD | None] = relationship("LRD", back_populates="task_lists")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<TaskList(id={self.id}, status='{self.status}', progress={self.completed_tasks}/{self.total_tasks})>"
 
     @property
     def progress_percentage(self) -> float:
         """Calculate task completion percentage"""
-        if self.total_tasks == 0:
+        total = int(self.total_tasks)
+        if total == 0:
             return 0.0
-        return (self.completed_tasks / self.total_tasks) * 100
+        return (int(self.completed_tasks) / total) * 100

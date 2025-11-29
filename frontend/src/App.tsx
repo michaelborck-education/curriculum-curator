@@ -8,6 +8,7 @@ import {
 import { Toaster } from 'react-hot-toast';
 import Dashboard from './components/Layout/Dashboard';
 import ContentCreator from './features/content/ContentCreator';
+import ContentView from './features/content/ContentView';
 import UnitManager from './features/units/UnitManager';
 // import UnitDashboard from './features/units/UnitDashboard'; // TODO: Re-enable when ready
 import UnitView from './features/units/UnitView';
@@ -68,9 +69,17 @@ function App() {
             />
             <Route path='/units/:id' element={<UnitView />} />
 
-            {/* Content Creation */}
+            {/* Content Creation and Viewing */}
             <Route path='/content/new' element={<ContentCreator />} />
             <Route path='/create/:type' element={<ContentCreator />} />
+            <Route
+              path='/units/:unitId/content/:contentId'
+              element={<ContentView />}
+            />
+            <Route
+              path='/units/:unitId/content/:contentId/edit'
+              element={<ContentCreator />}
+            />
 
             {/* Import */}
             <Route path='/import' element={<ImportMaterials />} />

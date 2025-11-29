@@ -81,7 +81,7 @@ class PedagogyAnalysisResponse(CamelModel):
     weaknesses: list[str] = Field(..., description="Areas for improvement")
     suggestions: list[str] = Field(..., description="Specific suggestions")
     alignment_score: float | None = Field(
-        None, ge=0, le=100, description="Alignment with objectives"
+        default=None, ge=0, le=100, description="Alignment with objectives"
     )
 
 
@@ -107,12 +107,12 @@ class GeneratedQuestion(CamelModel):
 
     question: str = Field(..., description="The question text")
     question_type: str = Field(..., description="Type of question")
-    options: list[str] | None = Field(None, description="Options for MCQ")
-    correct_answer: str | None = Field(None, description="Correct answer")
-    explanation: str | None = Field(None, description="Answer explanation")
+    options: list[str] | None = Field(default=None, description="Options for MCQ")
+    correct_answer: str | None = Field(default=None, description="Correct answer")
+    explanation: str | None = Field(default=None, description="Answer explanation")
     difficulty: str = Field(..., description="Difficulty level")
-    bloom_level: str | None = Field(None, description="Bloom's taxonomy level")
-    points: int = Field(1, description="Suggested point value")
+    bloom_level: str | None = Field(default=None, description="Bloom's taxonomy level")
+    points: int = Field(default=1, description="Suggested point value")
 
 
 class ContentTranslationRequest(CamelModel):
@@ -163,8 +163,10 @@ class GeneratedFeedback(CamelModel):
     strengths: list[str] = Field(..., description="Identified strengths")
     areas_for_improvement: list[str] = Field(..., description="Areas to improve")
     specific_suggestions: list[str] = Field(..., description="Specific suggestions")
-    grade_suggestion: str | None = Field(None, description="Suggested grade")
-    rubric_scores: dict[str, float] | None = Field(None, description="Rubric scores")
+    grade_suggestion: str | None = Field(default=None, description="Suggested grade")
+    rubric_scores: dict[str, float] | None = Field(
+        default=None, description="Rubric scores"
+    )
 
 
 class LLMResponse(CamelModel):
@@ -173,9 +175,9 @@ class LLMResponse(CamelModel):
     content: str = Field(..., description="Generated content")
     model: str = Field(..., description="Model used")
     provider: str = Field(..., description="Provider used")
-    tokens_used: int | None = Field(None, description="Tokens consumed")
+    tokens_used: int | None = Field(default=None, description="Tokens consumed")
     processing_time: float | None = Field(
-        None, description="Processing time in seconds"
+        default=None, description="Processing time in seconds"
     )
 
 
@@ -184,7 +186,9 @@ class ChatMessage(CamelModel):
 
     role: str = Field(..., description="Role: system, user, assistant")
     content: str = Field(..., description="Message content")
-    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
+    metadata: dict[str, Any] | None = Field(
+        default=None, description="Additional metadata"
+    )
 
 
 class ChatCompletionRequest(CamelModel):

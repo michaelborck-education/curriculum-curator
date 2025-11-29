@@ -2,10 +2,14 @@
 Unit tests for services - directly test the code for coverage
 """
 
+from __future__ import annotations
+
 import os
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from collections.abc import Generator
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 # Import plugin classes at module level
 from app.plugins.base import ValidatorPlugin, RemediatorPlugin
@@ -19,7 +23,7 @@ from app.core.config import Settings
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.core.database import Base, get_db
 from app.models.user import User, UserRole
-from app.models.course import Course, CourseStatus
+from app.models.unit import Unit, UnitStatus
 from app.models.lrd import LRD, LRDStatus
 from app.models.material import Material, MaterialType
 from app.api.deps import get_current_user
@@ -30,7 +34,7 @@ from sqlalchemy.orm import sessionmaker, Session
 class TestSecurityUnit:
     """Direct unit tests for security functions"""
 
-    def test_password_hashing(self):
+    def test_password_hashing(self) -> None:
         """Test password hashing and verification"""
         password = "TestPassword123!"
 
@@ -45,43 +49,42 @@ class TestSecurityUnit:
         # Verify wrong password
         assert verify_password("WrongPassword", hashed) is False
 
-    def test_create_access_token(self):
+    def test_create_access_token(self) -> None:
         """Test JWT token creation"""
         data = {"sub": "test@example.com"}
-        token = create_access_token(data)
 
+        # Create token
+        token = create_access_token(data)
         assert token is not None
-        assert isinstance(token, str)
         assert len(token) > 20
 
-    def test_token_with_expiry(self):
-        """Test token with custom expiry"""
+    def test_create_access_token_with_expiry(self) -> None:
+        """Test JWT token with custom expiry"""
         data = {"sub": "test@example.com"}
-        expires = timedelta(minutes=5)
-        token = create_access_token(data, expires_delta=expires)
+        expires = timedelta(hours=1)
 
+        token = create_access_token(data, expires)
         assert token is not None
 
 
-class TestDatabaseModelsUnit:
-    """Direct unit tests for database models"""
+class TestModelsUnit:
+    """Test model functionality"""
 
     @pytest.fixture
-    def db_session(self):
-        """Create test database session"""
+    def db_session(self) -> Generator[Session, None, None]:
+        """Create a test database session"""
         engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(bind=engine)
-        session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        session = session_local()
+        Base.metadata.create_all(engine)
+        TestSession = sessionmaker(bind=engine)
+        session = TestSession()
         yield session
         session.close()
 
-    def test_user_model_properties(self, db_session):
-        """Test User model properties"""
+    def test_user_model_roles(self, db_session: Session) -> None:
+        """Test User model role methods"""
         user = User(
-            email="test@example.com",
-            password_hash="hashed",
-            name="Test User",
+            email="lecturer@example.com",
+            password_hash="hash",
             role=UserRole.LECTURER.value,
         )
         db_session.add(user)
@@ -91,78 +94,86 @@ class TestDatabaseModelsUnit:
         assert user.is_admin is False
         assert user.is_student is False
 
-    def test_course_model_progress(self, db_session):
-        """Test Course model progress calculation"""
+    def test_unit_model_defaults(self, db_session: Session) -> None:
+        """Test Unit model defaults"""
         user = User(email="test@example.com", password_hash="hash")
         db_session.add(user)
         db_session.commit()
 
-        course = Course(user_id=user.id, title="Test Course", code="TEST101")
-        db_session.add(course)
+        unit = Unit(
+            title="Test Unit",
+            code="TEST101",
+            year=2024,
+            semester="semester_1",
+            owner_id=str(user.id),
+            created_by_id=str(user.id),
+        )
+        db_session.add(unit)
         db_session.commit()
-
-        # No modules - 0% progress
-        assert course.progress_percentage == 0.0
 
         # Test status defaults
-        assert course.status == CourseStatus.PLANNING.value
-        assert course.is_active is False
+        assert unit.status == UnitStatus.DRAFT.value
+        assert unit.is_draft is True
+        assert unit.is_active is False
 
-    def test_lrd_model_defaults(self, db_session):
+    def test_lrd_model_defaults(self, db_session: Session) -> None:
         """Test LRD model defaults"""
         user = User(email="test@example.com", password_hash="hash")
-        course = Course(user_id=user.id, title="Test", code="T01")
-        db_session.add_all([user, course])
+        db_session.add(user)
         db_session.commit()
 
-        lrd = LRD(course_id=course.id, version="1.0", content={"topic": "Test Topic"})
+        unit = Unit(
+            title="Test Unit",
+            code="T01",
+            year=2024,
+            semester="semester_1",
+            owner_id=str(user.id),
+            created_by_id=str(user.id),
+        )
+        db_session.add(unit)
+        db_session.commit()
+
+        lrd = LRD(unit_id=str(unit.id), version="1.0", content={"topic": "Test Topic"})
         db_session.add(lrd)
         db_session.commit()
 
         assert lrd.status == LRDStatus.DRAFT.value
         assert lrd.version == "1.0"
 
-    def test_material_versioning(self, db_session):
-        """Test Material versioning"""
+    def test_material_model(self, db_session: Session) -> None:
+        """Test Material model"""
         user = User(email="test@example.com", password_hash="hash")
-        course = Course(user_id=user.id, title="Test", code="T01")
-        db_session.add_all([user, course])
+        db_session.add(user)
         db_session.commit()
 
-        # Create v1
-        material_v1 = Material(
-            course_id=course.id,
+        unit = Unit(
+            title="Test Unit",
+            code="T01",
+            year=2024,
+            semester="semester_1",
+            owner_id=str(user.id),
+            created_by_id=str(user.id),
+        )
+        db_session.add(unit)
+        db_session.commit()
+
+        material = Material(
+            unit_id=str(unit.id),
             type=MaterialType.LECTURE.value,
             title="Test Material",
-            content={"data": "v1"},
+            git_path="units/test/lecture.md",
         )
-        db_session.add(material_v1)
+        db_session.add(material)
         db_session.commit()
 
-        assert material_v1.version == 1
-        assert material_v1.is_latest is True
-
-        # Create v2
-        material_v2 = Material(
-            course_id=course.id,
-            type=MaterialType.LECTURE.value,
-            title="Test Material v2",
-            content={"data": "v2"},
-            parent_version_id=material_v1.id,
-        )
-        material_v1.is_latest = False
-        db_session.add(material_v2)
-        db_session.commit()
-
-        assert material_v2.version == 2
-        assert material_v2.is_latest is True
-        assert material_v2.parent_version_id == material_v1.id
+        assert material.type == MaterialType.LECTURE.value
+        assert material.title == "Test Material"
 
 
 class TestConfigUnit:
     """Test configuration"""
 
-    def test_settings_defaults(self):
+    def test_settings_defaults(self) -> None:
         """Test default settings"""
         settings = Settings()
 
@@ -177,7 +188,9 @@ class TestAPIDepsMocked:
 
     @patch("app.api.deps.jwt.decode")
     @patch("app.api.deps.get_db")
-    def test_get_current_user_mocked(self, mock_get_db, mock_jwt_decode):
+    def test_get_current_user_mocked(
+        self, mock_get_db: Mock, mock_jwt_decode: Mock
+    ) -> None:
         """Test get_current_user dependency"""
         # This would need more setup but shows the pattern
         mock_jwt_decode.return_value = {"sub": "test@example.com"}
@@ -191,11 +204,16 @@ class TestAPIDepsMocked:
 class TestPluginBasics:
     """Test plugin base functionality"""
 
-    def test_plugin_imports(self):
+    def test_plugin_imports(self) -> None:
         """Test that plugins can be imported"""
         assert ValidatorPlugin is not None
         assert RemediatorPlugin is not None
 
-    def test_plugin_manager_import(self):
+    def test_plugin_manager_import(self) -> None:
         """Test plugin manager can be imported"""
         assert PluginManager is not None
+
+    def test_create_plugin_manager(self) -> None:
+        """Test creating plugin manager instance"""
+        pm = PluginManager()
+        assert pm is not None

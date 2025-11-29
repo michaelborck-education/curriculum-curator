@@ -3,6 +3,7 @@ API endpoints for content export using Quarto
 """
 
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -190,7 +191,6 @@ async def get_content_quarto_settings(
     # Get or create settings
     settings = content.quarto_settings
     if not settings:
-
         settings = ContentQuartoSettings(
             content_id=content_id,
             simple_settings={
@@ -241,7 +241,6 @@ async def update_content_quarto_settings(
     # Get or create settings
     settings = content.quarto_settings
     if not settings:
-
         settings = ContentQuartoSettings(content_id=content_id)
         db.add(settings)
 
@@ -274,7 +273,9 @@ async def get_user_presets(
     """
     Get user's saved Quarto presets
     """
-    return await quarto_service.get_user_presets(db, current_user.id)
+    from uuid import UUID  # noqa: PLC0415
+
+    return await quarto_service.get_user_presets(db, UUID(current_user.id))
 
 
 @router.post("/presets", response_model=QuartoPresetResponse)
@@ -288,7 +289,7 @@ async def save_preset(
     """
     return await quarto_service.save_preset(
         db=db,
-        user_id=current_user.id,
+        user_id=UUID(current_user.id),
         name=preset_data.name,
         yaml_content=preset_data.yaml_content,
         is_default=preset_data.is_default,
@@ -304,7 +305,7 @@ async def delete_preset(
     """
     Delete a user's preset
     """
-    success = await quarto_service.delete_preset(db, current_user.id, preset_id)
+    success = await quarto_service.delete_preset(db, UUID(current_user.id), preset_id)
 
     if not success:
         raise HTTPException(

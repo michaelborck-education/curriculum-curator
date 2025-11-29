@@ -2,14 +2,18 @@
 Security audit logging model for tracking security events
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, String, func
+from sqlalchemy import JSON, DateTime, String, func
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.user import GUID
+from app.models.common import GUID
 
 
 class SecurityEventType(str, Enum):
@@ -55,55 +59,73 @@ class SecurityLog(Base):
 
     __tablename__ = "security_logs"
 
-    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
 
     # Event information
-    event_type = Column(String(50), nullable=False, index=True)  # SecurityEventType
-    event_description = Column(String(500), nullable=True)
-    severity = Column(
+    event_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # SecurityEventType
+    event_description: Mapped[str | None] = mapped_column(String(500), default=None)
+    severity: Mapped[str] = mapped_column(
         String(20), default="info", index=True
     )  # info, warning, error, critical
 
     # User and session information
-    user_id = Column(GUID(), nullable=True, index=True)  # None for anonymous events
-    user_email = Column(String(255), nullable=True, index=True)
-    user_role = Column(String(20), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(
+        GUID(), index=True, default=None
+    )  # None for anonymous events
+    user_email: Mapped[str | None] = mapped_column(
+        String(255), index=True, default=None
+    )
+    user_role: Mapped[str | None] = mapped_column(String(20), default=None)
 
     # Request information
-    ip_address = Column(String(45), nullable=False, index=True)  # Support IPv6
-    user_agent = Column(String(500), nullable=True)
-    request_path = Column(String(500), nullable=True)
-    request_method = Column(String(10), nullable=True)  # GET, POST, etc.
+    ip_address: Mapped[str] = mapped_column(
+        String(45), nullable=False, index=True
+    )  # Support IPv6
+    user_agent: Mapped[str | None] = mapped_column(String(500), default=None)
+    request_path: Mapped[str | None] = mapped_column(String(500), default=None)
+    request_method: Mapped[str | None] = mapped_column(
+        String(10), default=None
+    )  # GET, POST, etc.
 
     # Location information (if available)
-    country = Column(String(2), nullable=True)  # ISO country code
-    city = Column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(
+        String(2), default=None
+    )  # ISO country code
+    city: Mapped[str | None] = mapped_column(String(100), default=None)
 
     # Session information
-    session_id = Column(String(50), nullable=True)
-    jwt_token_id = Column(
-        String(50), nullable=True, index=True
+    session_id: Mapped[str | None] = mapped_column(String(50), default=None)
+    jwt_token_id: Mapped[str | None] = mapped_column(
+        String(50), index=True, default=None
     )  # For token blacklisting
 
     # Timing
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    response_time_ms = Column(String(20), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), nullable=False, index=True
+    )
+    response_time_ms: Mapped[str | None] = mapped_column(String(20), default=None)
 
     # Additional context (JSON field for flexibility)
-    details = Column(JSON, nullable=True)  # Additional event-specific data
+    details: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, default=None
+    )  # Additional event-specific data
 
     # Status and outcome
-    success = Column(
+    success: Mapped[str] = mapped_column(
         String(10), default="unknown"
     )  # success, failure, blocked, unknown
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<SecurityLog(event='{self.event_type}', user='{self.user_email}', ip='{self.ip_address}', time='{self.timestamp}')>"
 
     @property
     def is_critical(self) -> bool:
         """Check if this is a critical security event"""
-        return self.severity == "critical"
+        return str(self.severity) == "critical"
 
     @property
     def is_attack_attempt(self) -> bool:
@@ -115,7 +137,7 @@ class SecurityLog(Base):
             SecurityEventType.PRIVILEGE_ESCALATION_ATTEMPT,
             SecurityEventType.SUSPICIOUS_ACTIVITY,
         }
-        return SecurityEventType(self.event_type) in attack_events
+        return SecurityEventType(str(self.event_type)) in attack_events
 
     @property
     def is_authentication_event(self) -> bool:
@@ -131,12 +153,12 @@ class SecurityLog(Base):
             SecurityEventType.ACCOUNT_LOCKED,
             SecurityEventType.ACCOUNT_UNLOCKED,
         }
-        return SecurityEventType(self.event_type) in auth_events
+        return SecurityEventType(str(self.event_type)) in auth_events
 
     @classmethod
     def log_event(
         cls,
-        db_session,
+        db_session: Any,
         event_type: SecurityEventType,
         ip_address: str,
         user_id: str | None = None,
@@ -150,9 +172,9 @@ class SecurityLog(Base):
         event_description: str | None = None,
         severity: str = "info",
         success: str = "unknown",
-        details: dict | None = None,
+        details: dict[str, Any] | None = None,
         response_time_ms: int | None = None,
-    ):
+    ) -> SecurityLog:
         """
         Create and save a security log entry
 
@@ -178,7 +200,7 @@ class SecurityLog(Base):
             SecurityLog: Created log entry
         """
         log_entry = cls(
-            id=uuid.uuid4(),
+            id=str(uuid.uuid4()),
             event_type=event_type.value,
             event_description=event_description,
             severity=severity,
@@ -204,14 +226,14 @@ class SecurityLog(Base):
     @classmethod
     def get_recent_events(
         cls,
-        db_session,
+        db_session: Any,
         hours: int = 24,
-        event_types: list | None = None,
+        event_types: list[SecurityEventType] | None = None,
         user_id: str | None = None,
         ip_address: str | None = None,
         severity: str | None = None,
         limit: int = 100,
-    ):
+    ) -> list[SecurityLog]:
         """
         Get recent security events with filtering
 
@@ -245,7 +267,7 @@ class SecurityLog(Base):
         return query.order_by(cls.timestamp.desc()).limit(limit).all()
 
     @classmethod
-    def get_attack_summary(cls, db_session, hours: int = 24):
+    def get_attack_summary(cls, db_session: Any, hours: int = 24) -> dict[str, Any]:
         """Get summary of potential attacks in the specified time period"""
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
 
@@ -287,7 +309,7 @@ class SecurityLog(Base):
         }
 
     @classmethod
-    def cleanup_old_logs(cls, db_session, days_old: int = 90):
+    def cleanup_old_logs(cls, db_session: Any, days_old: int = 90) -> int:
         """Clean up old security log entries"""
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
         deleted_count = (

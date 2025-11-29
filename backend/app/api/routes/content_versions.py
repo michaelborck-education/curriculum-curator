@@ -18,7 +18,9 @@ from app.schemas.content import (
 router = APIRouter()
 
 
-@router.get("/content/{content_id}/versions", response_model=list[ContentVersionResponse])
+@router.get(
+    "/content/{content_id}/versions", response_model=list[ContentVersionResponse]
+)
 async def get_content_versions(
     content_id: str,
     db: Session = Depends(deps.get_db),
@@ -52,29 +54,40 @@ async def get_content_versions(
     )
 
     # Get current version number
-    current_version = content.version_number if hasattr(content, 'version_number') else 1
+    current_version = (
+        content.version_number if hasattr(content, "version_number") else 1
+    )
 
     return [
         ContentVersionResponse(
             id=str(version.id),
-            materialId=str(version.content_id),
+            material_id=str(version.content_id),
             version=version.version_number,
-            parentVersionId=str(version.parent_version_id) if hasattr(version, 'parent_version_id') and version.parent_version_id else None,
+            parent_version_id=str(version.parent_version_id)
+            if hasattr(version, "parent_version_id") and version.parent_version_id
+            else None,
             title=version.title,
-            content={"html": version.content_html, "markdown": version.content_markdown},
+            content={
+                "html": version.content_html,
+                "markdown": version.content_markdown,
+            },
             raw_content=version.content_markdown,
-            createdAt=version.created_at.isoformat(),
-            createdBy=version.created_by.email if version.created_by else None,
-            changeSummary=version.change_description,
-            isLatest=(version.version_number == current_version),
-            wordCount=len(version.content_markdown.split()) if version.content_markdown else 0,
-            qualityScore=None,  # Could be calculated based on validators
+            created_at=version.created_at.isoformat(),
+            created_by=version.created_by.email if version.created_by else None,
+            change_summary=version.change_description,
+            is_latest=(version.version_number == current_version),
+            word_count=len(version.content_markdown.split())
+            if version.content_markdown
+            else 0,
+            quality_score=None,  # Could be calculated based on validators
         )
         for version in versions
     ]
 
 
-@router.get("/materials/{material_id}/versions", response_model=list[ContentVersionResponse])
+@router.get(
+    "/materials/{material_id}/versions", response_model=list[ContentVersionResponse]
+)
 async def get_material_versions(
     material_id: str,
     db: Session = Depends(deps.get_db),
@@ -118,8 +131,7 @@ async def restore_content_version(
         db.query(ContentVersion)
         .filter(
             and_(
-                ContentVersion.id == version_id,
-                ContentVersion.content_id == content_id
+                ContentVersion.id == version_id, ContentVersion.content_id == content_id
             )
         )
         .first()
@@ -155,7 +167,7 @@ async def restore_content_version(
     content.content_markdown = version_to_restore.content_markdown
     content.content_html = version_to_restore.content_html
     content.title = version_to_restore.title
-    if hasattr(content, 'version_number'):
+    if hasattr(content, "version_number"):
         content.version_number = new_version_number
 
     db.add(new_version)
@@ -230,7 +242,7 @@ async def create_content_version(
     content.content_markdown = version_data.content_markdown
     content.content_html = version_data.content_html
     content.title = version_data.title
-    if hasattr(content, 'version_number'):
+    if hasattr(content, "version_number"):
         content.version_number = new_version_number
 
     db.add(new_version)
@@ -239,16 +251,21 @@ async def create_content_version(
 
     return ContentVersionResponse(
         id=str(new_version.id),
-        materialId=str(new_version.content_id),
+        material_id=str(new_version.content_id),
         version=new_version.version_number,
-        parentVersionId=None,
+        parent_version_id=None,
         title=new_version.title,
-        content={"html": new_version.content_html, "markdown": new_version.content_markdown},
+        content={
+            "html": new_version.content_html,
+            "markdown": new_version.content_markdown,
+        },
         raw_content=new_version.content_markdown,
-        createdAt=new_version.created_at.isoformat(),
-        createdBy=current_user.email,
-        changeSummary=new_version.change_description,
-        isLatest=True,
-        wordCount=len(new_version.content_markdown.split()) if new_version.content_markdown else 0,
-        qualityScore=None,
+        created_at=new_version.created_at.isoformat(),
+        created_by=current_user.email,
+        change_summary=new_version.change_description,
+        is_latest=True,
+        word_count=len(new_version.content_markdown.split())
+        if new_version.content_markdown
+        else 0,
+        quality_score=None,
     )
