@@ -12,7 +12,7 @@ with support for:
 
 import json
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import litellm
 from litellm import acompletion, completion_cost
@@ -37,7 +37,7 @@ litellm.drop_params = True  # Automatically drop unsupported params per provider
 class LLMService:
     """Unified LLM service with multi-provider support and educational AI features"""
 
-    DEFAULT_MODELS = {
+    DEFAULT_MODELS: ClassVar[dict[str, str]] = {
         "openai": "gpt-4",
         "anthropic": "claude-3-5-sonnet-20241022",
         "ollama": "ollama/llama3.2",
@@ -800,7 +800,7 @@ Format as JSON."""
     def estimate_tokens(self, text: str, model: str = "gpt-4") -> int:
         """Estimate token count for text using tiktoken."""
         try:
-            import tiktoken
+            import tiktoken  # noqa: PLC0415
 
             encoding = tiktoken.encoding_for_model(model)
             return len(encoding.encode(text))
@@ -866,7 +866,7 @@ Format as JSON."""
             available_models: list[str] = []
             if provider == "ollama":
                 try:
-                    import httpx
+                    import httpx  # noqa: PLC0415
 
                     base_url = api_url or "http://localhost:11434"
                     async with httpx.AsyncClient() as client:
@@ -912,8 +912,9 @@ Format as JSON."""
         self, db: Session, user_id: str, days: int = 30
     ) -> dict[str, Any]:
         """Get token usage statistics for a user."""
-        from datetime import datetime, timedelta
-        from app.models.llm_config import TokenUsageLog
+        from datetime import datetime, timedelta  # noqa: PLC0415
+
+        from app.models.llm_config import TokenUsageLog  # noqa: PLC0415
 
         start_date = datetime.utcnow() - timedelta(days=days)
         logs = (

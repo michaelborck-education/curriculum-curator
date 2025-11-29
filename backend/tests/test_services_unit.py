@@ -5,9 +5,12 @@ Unit tests for services - directly test the code for coverage
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, patch
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 import pytest
 
@@ -75,8 +78,8 @@ class TestModelsUnit:
         """Create a test database session"""
         engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(engine)
-        TestSession = sessionmaker(bind=engine)
-        session = TestSession()
+        test_session_factory = sessionmaker(bind=engine)
+        session = test_session_factory()
         yield session
         session.close()
 

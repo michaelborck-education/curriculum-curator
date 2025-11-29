@@ -5,14 +5,16 @@ System settings model for admin-configurable application settings
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.core.database import Base
 from app.models.common import GUID
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class SystemSettings(Base):

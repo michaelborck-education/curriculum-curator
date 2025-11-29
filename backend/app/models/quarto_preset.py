@@ -5,7 +5,6 @@ Quarto preset model for storing user's YAML templates
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
@@ -15,6 +14,8 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from app.models.user import User
 
 
