@@ -4,14 +4,23 @@ import type { PedagogyType } from '../types/index';
 
 interface TeachingStyleState {
   globalStyle: PedagogyType;
+  isSet: boolean;
   setGlobalStyle: (style: PedagogyType) => void;
+  initFromUser: (teachingPhilosophy: string | undefined) => void;
 }
 
 export const useTeachingStyleStore = create<TeachingStyleState>()(
   persist(
     set => ({
       globalStyle: 'inquiry-based',
-      setGlobalStyle: (style: PedagogyType) => set({ globalStyle: style }),
+      isSet: false,
+      setGlobalStyle: (style: PedagogyType) =>
+        set({ globalStyle: style, isSet: true }),
+      initFromUser: (teachingPhilosophy: string | undefined) => {
+        if (teachingPhilosophy) {
+          set({ globalStyle: teachingPhilosophy as PedagogyType, isSet: true });
+        }
+      },
     }),
     {
       name: 'teaching-style-storage',

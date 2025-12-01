@@ -8,11 +8,13 @@ import {
   Edit,
   Trash2,
   ArrowLeft,
+  Sparkles,
 } from 'lucide-react';
 import { getUnit, deleteUnit as deleteUnitApi } from '../services/api';
 import ULOManager from '../components/UnitStructure/ULOManager';
 import { WeeklyMaterialsManager } from '../components/UnitStructure/WeeklyMaterialsManager';
 import { AssessmentsManager } from '../components/UnitStructure/AssessmentsManager';
+import CoursePlanner from '../components/UnitStructure/CoursePlanner';
 import type { Unit } from '../types';
 import { LoadingState, Button, Modal, Alert } from '../components/ui';
 import toast from 'react-hot-toast';
@@ -29,6 +31,7 @@ const UnitPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showPlanner, setShowPlanner] = useState(false);
 
   // Get active tab and week from URL
   const activeTab = (searchParams.get('tab') as TabType) || 'structure';
@@ -218,12 +221,38 @@ const UnitPage = () => {
       {/* Tab Content */}
       <div className='p-6'>
         {activeTab === 'structure' && (
-          <StructureTab
-            unitId={unitId!}
-            durationWeeks={durationWeeks}
-            selectedWeek={selectedWeek}
-            onWeekSelect={setSelectedWeek}
-          />
+          <div>
+            {/* Course Planner Toggle */}
+            <div className='flex justify-end mb-4'>
+              <Button
+                variant={showPlanner ? 'primary' : 'secondary'}
+                size='sm'
+                onClick={() => setShowPlanner(!showPlanner)}
+              >
+                <Sparkles className='w-4 h-4 mr-1' />
+                {showPlanner ? 'Close Planner' : 'Open Course Planner'}
+              </Button>
+            </div>
+
+            {/* Course Planner */}
+            {showPlanner && unit && (
+              <CoursePlanner
+                unit={unit}
+                onApplySchedule={() => {
+                  // TODO: Apply the generated schedule to the unit
+                  setShowPlanner(false);
+                }}
+                onClose={() => setShowPlanner(false)}
+              />
+            )}
+
+            <StructureTab
+              unitId={unitId!}
+              durationWeeks={durationWeeks}
+              selectedWeek={selectedWeek}
+              onWeekSelect={setSelectedWeek}
+            />
+          </div>
         )}
 
         {activeTab === 'outcomes' && <ULOManager unitId={unitId!} />}

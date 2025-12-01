@@ -8,11 +8,37 @@ import {
   updateContent,
   getContent,
   getUnits,
-  generateContent,
+  generateContentStream,
+  validateContent,
+  remediateContentStream,
 } from '../../services/api';
-import { Loader2, Sparkles, Save, Download } from 'lucide-react';
+import {
+  Loader2,
+  Sparkles,
+  Save,
+  Download,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Wand2,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { ContentType, PedagogyType, Unit } from '../../types/index';
+
+interface ValidationResult {
+  validatorName: string;
+  passed: boolean;
+  message: string;
+  score?: number;
+  suggestions?: string[];
+  remediationPrompt?: string;
+}
+
+interface ValidationResponse {
+  results: ValidationResult[];
+  overallPassed: boolean;
+  overallScore?: number;
+}
 
 const ContentCreator = () => {
   const { type, unitId, contentId } = useParams<{
@@ -32,6 +58,11 @@ const ContentCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isRemediating, setIsRemediating] = useState(false);
+  const [validationResults, setValidationResults] =
+    useState<ValidationResponse | null>(null);
+  const [streamingContent, setStreamingContent] = useState('');
 
   // Determine if we're in edit mode
   const isEditMode = Boolean(unitId && contentId);
@@ -93,22 +124,37 @@ const ContentCreator = () => {
     }
 
     setIsGenerating(true);
+    setStreamingContent('');
+    setContent('');
+    setValidationResults(null);
 
     try {
-      const response = await generateContent(
-        type || 'lecture',
+      await generateContentStream(
+        (type as ContentType) || 'lecture',
         pedagogy,
-        topic
+        topic,
+        chunk => {
+          setStreamingContent(prev => prev + chunk);
+        },
+        () => {
+          setStreamingContent(prev => {
+            setContent(prev);
+            return '';
+          });
+          setIsGenerating(false);
+          toast.success('Content generated successfully!');
+        },
+        error => {
+          console.error('Error generating content:', error);
+          toast.error(error.message || 'Failed to generate content');
+          setIsGenerating(false);
+        }
       );
-      const generatedContent = response.data?.content || '';
-      setContent(generatedContent);
-      toast.success('Content generated successfully!');
     } catch (error: unknown) {
       console.error('Error generating content:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to generate content';
       toast.error(errorMessage);
-    } finally {
       setIsGenerating(false);
     }
   };
@@ -175,6 +221,98 @@ const ContentCreator = () => {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleValidate = async () => {
+    if (!content.trim()) {
+      toast.error('Please add some content to validate');
+      return;
+    }
+
+    setIsValidating(true);
+    setValidationResults(null);
+
+    try {
+      const response = await validateContent(content, [
+        'readability',
+        'structure',
+      ]);
+      // Map snake_case to camelCase
+      const mapped: ValidationResponse = {
+        results: response.data.results.map(
+          (r: {
+            validator_name: string;
+            passed: boolean;
+            message: string;
+            score?: number;
+            suggestions?: string[];
+            remediation_prompt?: string;
+          }) => ({
+            validatorName: r.validator_name,
+            passed: r.passed,
+            message: r.message,
+            score: r.score,
+            suggestions: r.suggestions,
+            remediationPrompt: r.remediation_prompt,
+          })
+        ),
+        overallPassed: response.data.overall_passed,
+        overallScore: response.data.overall_score,
+      };
+      setValidationResults(mapped);
+
+      if (mapped.overallPassed) {
+        toast.success('Content passed all validations!');
+      } else {
+        toast('Content has some issues that could be improved', {
+          icon: '⚠️',
+        });
+      }
+    } catch (error) {
+      console.error('Error validating content:', error);
+      toast.error('Failed to validate content');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleRemediate = async (remediationType: string) => {
+    if (!content.trim()) {
+      toast.error('No content to remediate');
+      return;
+    }
+
+    setIsRemediating(true);
+    setStreamingContent('');
+
+    try {
+      await remediateContentStream(
+        content,
+        remediationType,
+        undefined,
+        chunk => {
+          setStreamingContent(prev => prev + chunk);
+        },
+        () => {
+          setStreamingContent(prev => {
+            setContent(prev);
+            return '';
+          });
+          setIsRemediating(false);
+          setValidationResults(null);
+          toast.success('Content remediated successfully!');
+        },
+        error => {
+          console.error('Error remediating content:', error);
+          toast.error(error.message || 'Failed to remediate content');
+          setIsRemediating(false);
+        }
+      );
+    } catch (error) {
+      console.error('Error remediating content:', error);
+      toast.error('Failed to remediate content');
+      setIsRemediating(false);
     }
   };
 
@@ -305,17 +443,29 @@ const ContentCreator = () => {
               </div>
             </div>
 
-            {isGenerating ? (
-              <div className='border border-gray-300 rounded-lg p-8 min-h-[400px] bg-gray-50 flex flex-col items-center justify-center'>
-                <Loader2
-                  className='animate-spin text-purple-600 mb-4'
-                  size={48}
-                />
-                <p className='text-gray-600 text-lg'>Generating content...</p>
-                <p className='text-gray-500 text-sm mt-2'>
-                  This may take a moment depending on the complexity of your
-                  topic
-                </p>
+            {isGenerating || isRemediating ? (
+              <div className='border border-gray-300 rounded-lg p-6 min-h-[400px] bg-gray-50'>
+                <div className='flex items-center gap-2 mb-4'>
+                  <Loader2 className='animate-spin text-purple-600' size={20} />
+                  <span className='text-gray-600 font-medium'>
+                    {isRemediating
+                      ? 'Remediating content...'
+                      : 'Generating content...'}
+                  </span>
+                </div>
+                {streamingContent ? (
+                  <div className='prose prose-sm max-w-none'>
+                    <div
+                      className='whitespace-pre-wrap text-gray-700'
+                      dangerouslySetInnerHTML={{ __html: streamingContent }}
+                    />
+                    <span className='inline-block w-2 h-4 bg-purple-600 animate-pulse ml-1' />
+                  </div>
+                ) : (
+                  <p className='text-gray-500 text-sm'>
+                    Starting {isRemediating ? 'remediation' : 'generation'}...
+                  </p>
+                )}
               </div>
             ) : (
               <RichTextEditor
@@ -383,6 +533,130 @@ const ContentCreator = () => {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Content Quality Section */}
+          <div className='bg-white rounded-lg shadow-md p-6'>
+            <h3 className='text-lg font-semibold mb-4'>Content Quality</h3>
+
+            <button
+              onClick={handleValidate}
+              disabled={isValidating || !content.trim()}
+              className='w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 mb-4'
+            >
+              {isValidating ? (
+                <Loader2 className='animate-spin' size={18} />
+              ) : (
+                <CheckCircle2 size={18} />
+              )}
+              {isValidating ? 'Validating...' : 'Check Compliance'}
+            </button>
+
+            {validationResults && (
+              <div className='space-y-3'>
+                {/* Overall Status */}
+                <div
+                  className={`p-3 rounded-lg ${
+                    validationResults.overallPassed
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-amber-50 border border-amber-200'
+                  }`}
+                >
+                  <div className='flex items-center gap-2'>
+                    {validationResults.overallPassed ? (
+                      <CheckCircle2 className='text-green-600' size={18} />
+                    ) : (
+                      <AlertTriangle className='text-amber-600' size={18} />
+                    )}
+                    <span
+                      className={`font-medium ${
+                        validationResults.overallPassed
+                          ? 'text-green-700'
+                          : 'text-amber-700'
+                      }`}
+                    >
+                      {validationResults.overallPassed
+                        ? 'All checks passed'
+                        : 'Issues found'}
+                    </span>
+                  </div>
+                  {validationResults.overallScore !== undefined && (
+                    <p className='text-sm text-gray-600 mt-1'>
+                      Overall score:{' '}
+                      {Math.round(validationResults.overallScore)}%
+                    </p>
+                  )}
+                </div>
+
+                {/* Individual Results */}
+                {validationResults.results.map((result, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border ${
+                      result.passed
+                        ? 'bg-white border-gray-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className='flex items-center justify-between mb-1'>
+                      <span className='font-medium text-sm'>
+                        {result.validatorName}
+                      </span>
+                      {result.passed ? (
+                        <CheckCircle2 className='text-green-500' size={16} />
+                      ) : (
+                        <XCircle className='text-red-500' size={16} />
+                      )}
+                    </div>
+                    <p className='text-xs text-gray-600'>{result.message}</p>
+                    {result.score !== undefined && (
+                      <p className='text-xs text-gray-500 mt-1'>
+                        Score: {result.score}%
+                      </p>
+                    )}
+
+                    {/* Suggestions */}
+                    {result.suggestions && result.suggestions.length > 0 && (
+                      <ul className='mt-2 space-y-1'>
+                        {result.suggestions.map((suggestion, sIdx) => (
+                          <li
+                            key={sIdx}
+                            className='text-xs text-gray-600 flex items-start gap-1'
+                          >
+                            <span className='text-gray-400'>•</span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Auto-fix button */}
+                    {!result.passed && result.remediationPrompt && (
+                      <button
+                        onClick={() =>
+                          handleRemediate(result.validatorName.toLowerCase())
+                        }
+                        disabled={isRemediating}
+                        className='mt-2 w-full px-3 py-1.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50 flex items-center justify-center gap-1 text-xs font-medium'
+                      >
+                        {isRemediating ? (
+                          <Loader2 className='animate-spin' size={14} />
+                        ) : (
+                          <Wand2 size={14} />
+                        )}
+                        Auto-fix
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!validationResults && (
+              <p className='text-sm text-gray-500'>
+                Run validation to check content readability and structure
+              </p>
+            )}
           </div>
 
           <div className='bg-white rounded-lg shadow-md p-6'>

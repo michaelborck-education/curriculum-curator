@@ -328,9 +328,26 @@ const DashboardPage = () => {
         <EmptyState
           icon={BookOpen}
           title='No Units Yet'
-          description='Create your first unit to start building curriculum'
+          description='Create your first unit to start building your curriculum. Each unit represents a subject you teach for a semester.'
           actionLabel='Create Your First Unit'
           onAction={openCreateModal}
+          tips={[
+            {
+              title: 'Start with unit basics',
+              description:
+                'Add your unit code, title, and duration. You can refine details later.',
+            },
+            {
+              title: 'Use AI to generate schedules',
+              description:
+                'Once created, use the Course Planner to auto-generate a 12-week teaching schedule.',
+            },
+            {
+              title: 'Create content with AI assistance',
+              description:
+                'Generate lectures, tutorials, and assessments aligned with your teaching style.',
+            },
+          ]}
         />
       ) : (
         <div className='bg-white rounded-lg shadow-sm border border-gray-200'>

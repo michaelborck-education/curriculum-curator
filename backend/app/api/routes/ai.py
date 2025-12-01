@@ -18,15 +18,22 @@ from app.schemas.llm import (
     ChatCompletionRequest,
     ChatMessage,
     ContentEnhanceRequest,
+    ContentRemediationRequest,
     ContentTranslationRequest,
+    ContentValidationRequest,
+    ContentValidationResponse,
     FeedbackGenerationRequest,
     GeneratedFeedback,
     GeneratedQuestion,
+    GeneratedSchedule,
     LLMResponse,
     PedagogyAnalysisRequest,
     PedagogyAnalysisResponse,
     QuestionGenerationRequest,
+    ScheduleGenerationRequest,
+    ScheduleWeek,
     SummaryGenerationRequest,
+    ValidationResult,
 )
 from app.services.llm_service import llm_service
 
@@ -457,5 +464,295 @@ async def list_available_models(
             "translation",
             "learning_paths",
             "misconception_detection",
+            "schedule_generation",
+            "content_validation",
         ],
     }
+
+
+# =============================================================================
+# Schedule Generation (Course Planner)
+# =============================================================================
+
+
+@router.post("/generate-schedule", response_model=GeneratedSchedule)
+async def generate_course_schedule(
+    request: ScheduleGenerationRequest,
+    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db),
+) -> GeneratedSchedule:
+    """
+    Generate a weekly course schedule based on unit information.
+
+    Uses AI to create a logical progression of topics across the specified weeks.
+    """
+    outcomes_text = (
+        "; ".join(request.learning_outcomes) if request.learning_outcomes else ""
+    )
+    style_instruction = ""
+    if request.teaching_style:
+        style_instruction = (
+            f"\nAlign the schedule with a {request.teaching_style} teaching approach."
+        )
+
+    prompt = f"""Create a {request.duration_weeks}-week university course schedule for:
+
+Title: {request.unit_title}
+Description: {request.unit_description}
+Learning Outcomes: {outcomes_text}
+{style_instruction}
+
+For each week, provide:
+1. A clear, descriptive title/theme
+2. 2-4 key topics to be covered
+3. Specific learning objectives for that week
+
+Ensure logical progression from foundational to advanced concepts.
+Use Australian/British English conventions.
+
+Return the schedule as a JSON array with this exact structure:
+[
+  {{
+    "week_number": 1,
+    "title": "Week title",
+    "topics": ["topic1", "topic2"],
+    "learning_objectives": ["objective1", "objective2"]
+  }}
+]"""
+
+    try:
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert curriculum designer. Always respond with valid JSON only, no additional text.",
+            user=current_user,
+            db=db,
+            temperature=0.7,
+        )
+
+        response_text = (
+            result
+            if isinstance(result, str)
+            else "".join([chunk async for chunk in result])
+        )
+
+        # Clean markdown formatting if present
+        response_text = response_text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+
+        weeks_data = json.loads(response_text)
+        weeks = [ScheduleWeek(**w) for w in weeks_data]
+
+        return GeneratedSchedule(
+            weeks=weeks,
+            summary=f"Generated {len(weeks)}-week schedule for {request.unit_title}",
+        )
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to parse schedule JSON: {e!s}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Schedule generation failed: {e!s}"
+        )
+
+
+# =============================================================================
+# Content Validation & Remediation
+# =============================================================================
+
+
+@router.post("/validate", response_model=ContentValidationResponse)
+async def validate_content(
+    request: ContentValidationRequest,
+    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db),
+) -> ContentValidationResponse:
+    """
+    Validate content for readability, structure, and quality.
+
+    Returns detailed validation results with suggestions for improvement.
+    """
+    results: list[ValidationResult] = []
+
+    for validation_type in request.validation_types:
+        if validation_type == "readability":
+            prompt = f"""Analyze the readability of the following educational content for university undergraduate students.
+
+Content:
+{request.content}
+
+Evaluate:
+1. Is the language clear and accessible?
+2. Are sentences well-structured and not overly complex?
+3. Is technical terminology appropriately introduced and explained?
+4. Does it use Australian/British English conventions?
+
+Return JSON with:
+{{
+  "passed": true/false,
+  "score": 0-100,
+  "message": "brief assessment",
+  "suggestions": ["suggestion1", "suggestion2"]
+}}"""
+
+        elif validation_type == "structure":
+            prompt = f"""Analyze the structure of the following educational content.
+
+Content:
+{request.content}
+
+Evaluate:
+1. Does it have a logical flow and organization?
+2. Are there clear sections (intro, body, conclusion)?
+3. Are learning objectives or key points clearly stated?
+4. Does it include appropriate examples or explanations?
+
+Return JSON with:
+{{
+  "passed": true/false,
+  "score": 0-100,
+  "message": "brief assessment",
+  "suggestions": ["suggestion1", "suggestion2"]
+}}"""
+
+        else:
+            continue
+
+        try:
+            result = await llm_service.generate_text(
+                prompt=prompt,
+                system_prompt="You are an expert educational content reviewer. Always respond with valid JSON only.",
+                user=current_user,
+                db=db,
+                temperature=0.3,
+            )
+
+            response_text = (
+                result
+                if isinstance(result, str)
+                else "".join([chunk async for chunk in result])
+            )
+
+            # Clean JSON
+            response_text = response_text.strip()
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            data = json.loads(response_text)
+
+            remediation_prompt = None
+            if not data.get("passed", True):
+                if validation_type == "readability":
+                    remediation_prompt = "Improve the readability for university undergraduate students. Use clearer language, shorter sentences, and Australian/British spelling."
+                elif validation_type == "structure":
+                    remediation_prompt = "Reorganize for better structure with clear sections: Learning Objectives, Content Body, Summary. Add transitions between sections."
+
+            results.append(
+                ValidationResult(
+                    validator_name=validation_type.title(),
+                    passed=data.get("passed", True),
+                    message=data.get("message", "Validation complete"),
+                    score=data.get("score"),
+                    suggestions=data.get("suggestions"),
+                    remediation_prompt=remediation_prompt,
+                )
+            )
+
+        except Exception as e:
+            results.append(
+                ValidationResult(
+                    validator_name=validation_type.title(),
+                    passed=False,
+                    message=f"Validation error: {e!s}",
+                )
+            )
+
+    overall_passed = all(r.passed for r in results)
+    overall_score = (
+        sum(r.score for r in results if r.score is not None) / len(results)
+        if results and any(r.score is not None for r in results)
+        else None
+    )
+
+    return ContentValidationResponse(
+        results=results,
+        overall_passed=overall_passed,
+        overall_score=overall_score,
+    )
+
+
+@router.post("/remediate")
+async def remediate_content(
+    request: ContentRemediationRequest,
+    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db),
+):
+    """
+    Auto-remediate content based on validation feedback.
+
+    Streams the remediated content back to the client.
+    """
+    if request.remediation_type == "readability":
+        prompt = f"""Improve the readability of the following content for university undergraduate students.
+Use Australian/British spelling. Make sentences clearer and more accessible.
+Preserve the educational intent and technical accuracy.
+
+Original content:
+{request.content}
+
+Return ONLY the improved content, no explanations."""
+
+    elif request.remediation_type == "structure":
+        prompt = f"""Reorganize the following educational content to follow a standard structure:
+1. Learning Objectives (2-3 clear objectives)
+2. Introduction
+3. Main Content with clear sections
+4. Summary/Key Takeaways
+
+Preserve the educational content and meaning.
+
+Original content:
+{request.content}
+
+Return ONLY the restructured content, no explanations."""
+
+    elif request.custom_prompt:
+        prompt = f"""{request.custom_prompt}
+
+Content to improve:
+{request.content}
+
+Return ONLY the improved content."""
+
+    else:
+        raise HTTPException(
+            status_code=400, detail="Invalid remediation type or missing custom prompt"
+        )
+
+    async def stream_response():
+        result = await llm_service.generate_text(
+            prompt=prompt,
+            system_prompt="You are an expert educational content editor.",
+            user=current_user,
+            db=db,
+            stream=True,
+        )
+        if isinstance(result, str):
+            yield f"data: {json.dumps({'content': result})}\n\n"
+        else:
+            async for chunk in result:
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+
+    return StreamingResponse(stream_response(), media_type="text/event-stream")

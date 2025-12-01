@@ -2,11 +2,11 @@
 """Create an admin user for testing"""
 
 import sys
+import traceback
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import uuid
 
 from app.core import security
 from app.core.database import Base, SessionLocal, engine
@@ -55,8 +55,6 @@ def create_admin(email: str, password: str, name: str):
 
     except Exception as e:
         print(f"❌ Error: {e}")
-        import traceback
-
         traceback.print_exc()
         db.rollback()
     finally:

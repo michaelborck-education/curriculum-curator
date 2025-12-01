@@ -147,5 +147,143 @@ export const uploadFile = (file: File): Promise<ApiResponse> => {
   });
 };
 
+// Streaming content generation
+export const generateContentStream = async (
+  type: ContentType,
+  pedagogy: PedagogyType,
+  topic: string,
+  onChunk: (chunk: string) => void,
+  onComplete?: () => void,
+  onError?: (error: Error) => void
+): Promise<void> => {
+  const token = localStorage.getItem('token');
+
+  try {
+    const response = await window.fetch(`${API_BASE_URL}/ai/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        content_type: type,
+        pedagogy_style: pedagogy,
+        topic,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body');
+    }
+
+    const decoder = new TextDecoder();
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const text = decoder.decode(value, { stream: true });
+      // Parse SSE data
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) {
+              onChunk(data.content);
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
+      }
+    }
+
+    onComplete?.();
+  } catch (error) {
+    onError?.(error instanceof Error ? error : new Error('Stream failed'));
+  }
+};
+
+// Content validation
+export const validateContent = (
+  content: string,
+  validationTypes: string[] = ['readability', 'structure']
+): Promise<ApiResponse> =>
+  api.post('/ai/validate', {
+    content,
+    validationTypes,
+  });
+
+// Content remediation (streaming)
+export const remediateContentStream = async (
+  content: string,
+  remediationType: string,
+  customPrompt?: string,
+  onChunk: (chunk: string) => void = () => {},
+  onComplete?: () => void,
+  onError?: (error: Error) => void
+): Promise<void> => {
+  const token = localStorage.getItem('token');
+
+  try {
+    const response = await window.fetch(`${API_BASE_URL}/ai/remediate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        content,
+        remediationType,
+        customPrompt,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body');
+    }
+
+    const decoder = new TextDecoder();
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const text = decoder.decode(value, { stream: true });
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) {
+              onChunk(data.content);
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
+      }
+    }
+
+    onComplete?.();
+  } catch (error) {
+    onError?.(error instanceof Error ? error : new Error('Remediation failed'));
+  }
+};
+
 export default api;
 export { api };

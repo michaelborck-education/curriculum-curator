@@ -200,3 +200,82 @@ class ChatCompletionRequest(CamelModel):
     stream: bool = Field(False, description="Stream the response")
     model: str | None = Field(None, description="Specific model to use")
     provider: str | None = Field(None, description="Specific provider to use")
+
+
+class ScheduleGenerationRequest(CamelModel):
+    """Request for course schedule generation"""
+
+    unit_title: str = Field(..., description="Title of the unit/course")
+    unit_description: str = Field("", description="Description of the unit")
+    learning_outcomes: list[str] = Field(
+        default_factory=list, description="List of learning outcomes"
+    )
+    duration_weeks: int = Field(12, ge=1, le=52, description="Number of weeks")
+    teaching_style: str | None = Field(None, description="Teaching philosophy style")
+
+
+class ScheduleWeek(CamelModel):
+    """A week in the generated schedule"""
+
+    week_number: int = Field(..., description="Week number")
+    title: str = Field(..., description="Week title/theme")
+    topics: list[str] = Field(..., description="Topics covered this week")
+    learning_objectives: list[str] | None = Field(
+        default=None, description="Specific learning objectives for the week"
+    )
+
+
+class GeneratedSchedule(CamelModel):
+    """Response containing the generated schedule"""
+
+    weeks: list[ScheduleWeek] = Field(..., description="List of weeks")
+    summary: str | None = Field(default=None, description="Schedule summary")
+
+
+class ContentValidationRequest(CamelModel):
+    """Request for content validation"""
+
+    content: str = Field(..., description="Content to validate")
+    validation_types: list[str] = Field(
+        default_factory=lambda: ["readability", "structure"],
+        description="Types of validation: readability, structure, accuracy, completeness",
+    )
+
+
+class ValidationResult(CamelModel):
+    """Result of a single validation check"""
+
+    validator_name: str = Field(..., description="Name of the validator")
+    passed: bool = Field(..., description="Whether validation passed")
+    message: str = Field(..., description="Validation message/feedback")
+    score: float | None = Field(
+        default=None, ge=0, le=100, description="Score if applicable"
+    )
+    suggestions: list[str] | None = Field(
+        default=None, description="Improvement suggestions"
+    )
+    remediation_prompt: str | None = Field(
+        default=None, description="Prompt for auto-remediation"
+    )
+
+
+class ContentValidationResponse(CamelModel):
+    """Response from content validation"""
+
+    results: list[ValidationResult] = Field(..., description="Validation results")
+    overall_passed: bool = Field(..., description="Whether all validations passed")
+    overall_score: float | None = Field(
+        default=None, description="Overall quality score"
+    )
+
+
+class ContentRemediationRequest(CamelModel):
+    """Request for AI-powered content remediation"""
+
+    content: str = Field(..., description="Content to remediate")
+    remediation_type: str = Field(
+        ..., description="Type: readability, structure, or custom prompt"
+    )
+    custom_prompt: str | None = Field(
+        None, description="Custom remediation instructions"
+    )

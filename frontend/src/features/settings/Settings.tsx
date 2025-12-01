@@ -8,10 +8,12 @@ import {
   Save,
   CheckCircle,
   Brain,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
 import LLMSettings from './LLMSettings';
+import TeachingStyleSettings from './TeachingStyleSettings';
 
 const Settings = () => {
   const { user } = useAuthStore();
@@ -108,6 +110,7 @@ const Settings = () => {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'teaching-style', label: 'Teaching Style', icon: Sparkles },
     { id: 'preferences', label: 'Preferences', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -265,6 +268,8 @@ const Settings = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'teaching-style' && <TeachingStyleSettings />}
 
           {activeTab === 'preferences' && (
             <div className='bg-white rounded-lg shadow-md p-6'>

@@ -26,12 +26,15 @@ import LRDList from './features/lrd/LRDList';
 import LRDDetail from './features/lrd/LRDDetail';
 import ImportMaterials from './features/import/ImportMaterials';
 import MaterialDetail from './features/materials/MaterialDetail';
-import TeachingStyle from './features/teaching/TeachingStyle';
 import AIAssistant from './features/ai/AIAssistant';
 import Settings from './features/settings/Settings';
 
+// Onboarding
+import TeachingStyleOnboarding from './components/onboarding/TeachingStyleOnboarding';
+
 // Store
 import { useAuthStore } from './stores/authStore';
+import { useTeachingStyleStore } from './stores/teachingStyleStore';
 
 // Redirect helper for routes with params
 const UnitDashboardRedirect = () => {
@@ -47,6 +50,7 @@ const UnitStructureRedirect = () => {
 function App() {
   const { isAuthenticated, user, logout, isLoading, initializeAuth } =
     useAuthStore();
+  const { isSet: teachingStyleIsSet } = useTeachingStyleStore();
 
   // Initialize auth on app load
   useEffect(() => {
@@ -54,6 +58,27 @@ function App() {
   }, [initializeAuth]);
 
   const [showLogin, setShowLogin] = useState(false);
+  const [showTeachingStyleOnboarding, setShowTeachingStyleOnboarding] =
+    useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  // Check if we should show teaching style onboarding
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      user &&
+      !user.teachingPhilosophy &&
+      !teachingStyleIsSet &&
+      !onboardingDismissed
+    ) {
+      // Small delay to let the app load first
+      const timer = window.setTimeout(() => {
+        setShowTeachingStyleOnboarding(true);
+      }, 500);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [isAuthenticated, user, teachingStyleIsSet, onboardingDismissed]);
 
   // Custom logout that resets to landing page
   const handleLogout = () => {
@@ -92,6 +117,15 @@ function App() {
     return (
       <Router>
         <Toaster position='top-right' />
+        {showTeachingStyleOnboarding && (
+          <TeachingStyleOnboarding
+            onComplete={() => setShowTeachingStyleOnboarding(false)}
+            onSkip={() => {
+              setShowTeachingStyleOnboarding(false);
+              setOnboardingDismissed(true);
+            }}
+          />
+        )}
         <Routes>
           {/* App Layout wrapper with nested routes */}
           <Route element={<AppLayout onLogout={handleLogout} />}>
@@ -133,8 +167,11 @@ function App() {
             {/* Materials */}
             <Route path='/materials/:materialId' element={<MaterialDetail />} />
 
-            {/* Teaching Style */}
-            <Route path='/teaching-style' element={<TeachingStyle />} />
+            {/* Teaching Style - redirect to settings */}
+            <Route
+              path='/teaching-style'
+              element={<Navigate to='/settings?tab=teaching-style' replace />}
+            />
 
             {/* AI Assistant */}
             <Route path='/ai-assistant' element={<AIAssistant />} />

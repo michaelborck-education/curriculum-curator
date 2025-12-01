@@ -33,6 +33,7 @@ import {
   ChevronUp,
   Sparkles,
   Loader2,
+  Lightbulb,
 } from 'lucide-react';
 import { materialsApi } from '../../services/unitStructureApi';
 import { generateContent } from '../../services/api';
@@ -710,8 +711,57 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
         >
           <div className='space-y-3'>
             {materials.length === 0 ? (
-              <div className='text-center py-8 text-gray-500'>
-                No materials added for this week yet.
+              <div className='bg-white border border-gray-200 rounded-lg p-8'>
+                <div className='text-center'>
+                  <FileText className='w-10 h-10 text-gray-400 mx-auto mb-3' />
+                  <h4 className='text-gray-900 font-medium mb-1'>
+                    No materials for Week {weekNumber}
+                  </h4>
+                  <p className='text-gray-500 text-sm mb-4'>
+                    Add your first material to start building this week&apos;s
+                    content.
+                  </p>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className='inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700'
+                  >
+                    <Plus className='w-4 h-4 mr-2' />
+                    Add Material
+                  </button>
+                </div>
+
+                {/* Contextual Tips */}
+                <div className='mt-6 bg-purple-50 rounded-lg p-4'>
+                  <div className='flex items-center gap-2 mb-3'>
+                    <Lightbulb className='w-4 h-4 text-purple-600' />
+                    <span className='text-sm font-medium text-purple-900'>
+                      Tips for Week {weekNumber}
+                    </span>
+                  </div>
+                  <ul className='space-y-2 text-sm'>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-purple-600 font-medium'>1.</span>
+                      <span className='text-gray-700'>
+                        <strong>Start with a lecture</strong> to introduce the
+                        week&apos;s concepts
+                      </span>
+                    </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-purple-600 font-medium'>2.</span>
+                      <span className='text-gray-700'>
+                        <strong>Use AI generation</strong> to quickly draft
+                        content aligned with your teaching style
+                      </span>
+                    </li>
+                    <li className='flex items-start gap-2'>
+                      <span className='text-purple-600 font-medium'>3.</span>
+                      <span className='text-gray-700'>
+                        <strong>Drag to reorder</strong> materials once you have
+                        multiple items
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             ) : (
               materials.map(material => (

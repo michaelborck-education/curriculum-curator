@@ -5,12 +5,14 @@ Creates tables and loads sample data for development
 """
 
 import sys
+import traceback
 import uuid
 from pathlib import Path
 
 # Add backend directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import get_password_hash
 
@@ -30,8 +32,6 @@ def init_db():
     print("🚀 Initializing Curriculum Curator Database...")
 
     # Ensure data directory exists for SQLite
-    from app.core.config import settings
-
     if "sqlite" in settings.DATABASE_URL:
         db_path = settings.DATABASE_URL.replace("sqlite:///", "").replace("./", "")
         db_dir = Path(db_path).parent
@@ -53,7 +53,7 @@ def init_db():
         existing_users = db.query(User).count()
         if existing_users > 0:
             print(
-                f"ℹ️  Database already contains {existing_users} users. Skipping sample data."
+                f"[INFO] Database already contains {existing_users} users. Skipping sample data."
             )
             return
 
@@ -129,8 +129,6 @@ def init_db():
 
     except Exception as e:
         print(f"\n❌ Error during initialization: {e}")
-        import traceback
-
         traceback.print_exc()
         db.rollback()
         raise

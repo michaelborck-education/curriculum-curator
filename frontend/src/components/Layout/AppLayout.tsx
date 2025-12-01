@@ -337,20 +337,6 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
               <Brain className='w-5 h-5 flex-shrink-0' />
               {sidebarOpen && <span>AI Assistant</span>}
             </button>
-            <button
-              onClick={() => {
-                navigate('/teaching-style');
-                setMobileSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${
-                isActive('/teaching-style')
-                  ? 'bg-purple-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <Sparkles className='w-5 h-5 flex-shrink-0' />
-              {sidebarOpen && <span>Teaching Style</span>}
-            </button>
           </div>
         </nav>
 

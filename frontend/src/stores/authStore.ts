@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User, AuthState } from '../types/index';
 import api from '../services/api';
+import { useTeachingStyleStore } from './teachingStyleStore';
 
 interface ExtendedAuthState extends AuthState {
   isInitialized: boolean;
@@ -45,6 +46,12 @@ export const useAuthStore = create<ExtendedAuthState>((set, get) => ({
           isInitialized: true,
           isLoading: false,
         });
+        // Sync teaching style from user profile
+        if (response.data.teachingPhilosophy) {
+          useTeachingStyleStore
+            .getState()
+            .initFromUser(response.data.teachingPhilosophy);
+        }
       }
     } catch {
       // Token is invalid or expired - clear it
