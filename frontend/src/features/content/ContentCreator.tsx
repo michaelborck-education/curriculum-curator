@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import RichTextEditor from '../../components/Editor/RichTextEditor';
 import PedagogySelector from '../../components/Wizard/PedagogySelector';
 import {
@@ -20,6 +20,7 @@ const ContentCreator = () => {
     unitId?: string;
     contentId?: string;
   }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
@@ -65,17 +66,22 @@ const ContentCreator = () => {
     }
   }, [isEditMode, unitId, contentId]);
 
-  // Pre-select unit if unitId is in URL
+  // Pre-select unit if unitId is in URL (either route param or query param)
   useEffect(() => {
+    const unitFromQuery = searchParams.get('unit');
     if (unitId) {
       setSelectedUnitId(unitId);
+    } else if (unitFromQuery) {
+      setSelectedUnitId(unitFromQuery);
     }
-  }, [unitId]);
+  }, [unitId, searchParams]);
 
   const fetchUnits = async () => {
     try {
       const response = await getUnits();
-      setUnits(response.data || []);
+      // API returns { units: [...], total: X }
+      const unitList = response.data;
+      setUnits(Array.isArray(unitList?.units) ? unitList.units : []);
     } catch (error) {
       console.error('Failed to fetch units:', error);
       toast.error('Failed to load units');
