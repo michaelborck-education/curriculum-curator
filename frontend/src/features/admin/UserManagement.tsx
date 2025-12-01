@@ -87,7 +87,7 @@ const UserManagement = () => {
 
   const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      await api.post(`/api/admin/users/${userId}/toggle-status`);
+      await api.post(`/admin/users/${userId}/toggle-status`);
       setUsers(prev =>
         prev.map(user =>
           user.id === userId ? { ...user, isActive: !currentStatus } : user
@@ -101,7 +101,7 @@ const UserManagement = () => {
 
   const handleVerifyUser = async (userId: string) => {
     try {
-      await api.post(`/api/admin/users/${userId}/verify`);
+      await api.post(`/admin/users/${userId}/verify`);
       setUsers(prev =>
         prev.map(user =>
           user.id === userId ? { ...user, isVerified: true } : user
@@ -142,7 +142,7 @@ const UserManagement = () => {
 
     try {
       const response = await api.delete(
-        `/api/admin/users/${userId}${permanent ? '?permanent=true' : ''}`
+        `/admin/users/${userId}${permanent ? '?permanent=true' : ''}`
       );
 
       if (permanent) {

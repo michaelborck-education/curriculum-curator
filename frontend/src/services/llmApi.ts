@@ -38,7 +38,7 @@ class LLMApiService {
     if (bearerToken) params.append('bearer_token', bearerToken);
 
     const response = await api.get<string[]>(
-      `/api/llm-config/models/${provider}?${params.toString()}`
+      `/llm-config/models/${provider}?${params.toString()}`
     );
     return response.data;
   }
@@ -103,7 +103,7 @@ class LLMApiService {
     config: Partial<LLMConfig>
   ): Promise<LLMConfig> {
     const response = await api.put<LLMConfig>(
-      `/api/llm-config/configurations/${id}`,
+      `/llm-config/configurations/${id}`,
       config
     );
     return response.data;
@@ -113,7 +113,7 @@ class LLMApiService {
    * Delete an LLM configuration
    */
   async deleteConfiguration(id: string): Promise<void> {
-    await api.delete(`/api/llm-config/configurations/${id}`);
+    await api.delete(`/llm-config/configurations/${id}`);
   }
 
   /**
@@ -121,7 +121,7 @@ class LLMApiService {
    */
   async getTokenStats(days: number = 30): Promise<TokenUsageStats> {
     const response = await api.get<TokenUsageStats>(
-      `/api/llm-config/usage/stats?days=${days}`
+      `/llm-config/usage/stats?days=${days}`
     );
     return response.data;
   }
@@ -131,7 +131,7 @@ class LLMApiService {
    */
   async getAllUsersTokenStats(days: number = 30): Promise<TokenUsageStats[]> {
     const response = await api.get<TokenUsageStats[]>(
-      `/api/llm-config/usage/stats/all?days=${days}`
+      `/llm-config/usage/stats/all?days=${days}`
     );
     return response.data;
   }

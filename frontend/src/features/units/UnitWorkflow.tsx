@@ -62,7 +62,7 @@ const UnitWorkflow: React.FC = () => {
       setLoading(true);
 
       // Fetch unit data
-      const unitResponse = await api.get(`/api/units/${unitId}`);
+      const unitResponse = await api.get(`/units/${unitId}`);
       setUnit({
         id: unitResponse.data.id,
         name: unitResponse.data.title,
@@ -72,7 +72,7 @@ const UnitWorkflow: React.FC = () => {
 
       // Try to fetch unit structure if it exists
       try {
-        const outlineResponse = await api.get(`/api/units/${unitId}/structure`);
+        const outlineResponse = await api.get(`/units/${unitId}/structure`);
         if (outlineResponse.data) {
           setUnitOutline(outlineResponse.data.outline);
           setLearningOutcomes(outlineResponse.data.learning_outcomes || []);

@@ -26,7 +26,7 @@ class WorkflowAPI {
     next_question: WorkflowQuestion;
   }> {
     const response = await api.post(
-      `/api/content/workflow/sessions/create/${unitId}`,
+      `/content/workflow/sessions/create/${unitId}`,
       {
         session_name: sessionName,
       }
@@ -39,7 +39,7 @@ class WorkflowAPI {
    */
   async getSessionStatus(sessionId: string): Promise<WorkflowStatus> {
     const response = await api.get(
-      `/api/content/workflow/sessions/${sessionId}/status`
+      `/content/workflow/sessions/${sessionId}/status`
     );
     return response.data;
   }
@@ -55,7 +55,7 @@ class WorkflowAPI {
     can_generate?: boolean;
   }> {
     const response = await api.get(
-      `/api/content/workflow/sessions/${sessionId}/next-question`
+      `/content/workflow/sessions/${sessionId}/next-question`
     );
     return response.data;
   }
@@ -76,7 +76,7 @@ class WorkflowAPI {
     next_steps?: string[];
   }> {
     const response = await api.post(
-      `/api/content/workflow/sessions/${sessionId}/answer`,
+      `/content/workflow/sessions/${sessionId}/answer`,
       {
         question_key: questionKey,
         answer: answer,
@@ -93,7 +93,7 @@ class WorkflowAPI {
     useAI: boolean = true
   ): Promise<UnitStructureResult> {
     const response = await api.post(
-      `/api/content/workflow/sessions/${sessionId}/generate-structure`,
+      `/content/workflow/sessions/${sessionId}/generate-structure`,
       { use_ai: useAI }
     );
     return response.data;
@@ -116,7 +116,7 @@ class WorkflowAPI {
     question_count: number;
   }> {
     const response = await api.get(
-      `/api/content/workflow/stages/${stage}/questions`
+      `/content/workflow/stages/${stage}/questions`
     );
     return response.data;
   }
@@ -145,7 +145,7 @@ class WorkflowAPI {
     sessionId: string
   ): Promise<{ status: string; message: string }> {
     const response = await api.delete(
-      `/api/content/workflow/sessions/${sessionId}`
+      `/content/workflow/sessions/${sessionId}`
     );
     return response.data;
   }
@@ -159,7 +159,7 @@ class WorkflowAPI {
     next_question: WorkflowQuestion;
   }> {
     const response = await api.post(
-      `/api/content/workflow/sessions/${sessionId}/reset`
+      `/content/workflow/sessions/${sessionId}/reset`
     );
     return response.data;
   }
@@ -227,7 +227,7 @@ class WorkflowAPI {
     formData.append('auto_create', autoCreate.toString());
 
     const response = await api.post(
-      `/api/content/import/pdf/create-unit-structure/${unitId}`,
+      `/content/import/pdf/create-unit-structure/${unitId}`,
       formData,
       {
         headers: {
@@ -247,7 +247,7 @@ class WorkflowAPI {
     suggestions: any[];
     next_steps: string[];
   }> {
-    const response = await api.get(`/api/content/import/suggestions/${unitId}`);
+    const response = await api.get(`/content/import/suggestions/${unitId}`);
     return response.data;
   }
 }

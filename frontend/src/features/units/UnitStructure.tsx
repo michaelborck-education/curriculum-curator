@@ -28,16 +28,16 @@ const UnitStructure: React.FC = () => {
   const fetchUnitAndEnsureOutline = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/api/units/${unitId}`);
+      const response = await api.get(`/units/${unitId}`);
       setUnit(response.data);
 
       // Check if unit has an outline, create one if it doesn't
       try {
-        await api.get(`/api/units/${unitId}/structure`);
+        await api.get(`/units/${unitId}/structure`);
       } catch (error: any) {
         if (error.response?.status === 404) {
           // No outline exists, create an empty one
-          await api.post(`/api/units/${unitId}/outline/create`, {
+          await api.post(`/units/${unitId}/outline/create`, {
             title: `${response.data.code} - ${response.data.title}`,
             description: response.data.description || '',
             durationWeeks:

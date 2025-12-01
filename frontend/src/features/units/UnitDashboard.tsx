@@ -88,7 +88,7 @@ const UnitDashboard = () => {
   useEffect(() => {
     const fetchUnitDetails = async () => {
       try {
-        const response = await api.get(`/api/units/${unitId}`);
+        const response = await api.get(`/units/${unitId}`);
         setUnit(response.data);
       } catch (error) {
         console.error('Error fetching unit:', error);

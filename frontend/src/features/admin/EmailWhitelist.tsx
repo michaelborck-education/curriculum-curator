@@ -93,7 +93,7 @@ const EmailWhitelist = () => {
     }
 
     try {
-      await api.delete(`/api/admin/whitelist/${id}`);
+      await api.delete(`/admin/whitelist/${id}`);
       setEntries(entries.filter(entry => entry.id !== id));
       setSuccess('Entry removed successfully');
       window.setTimeout(() => setSuccess(''), 3000);

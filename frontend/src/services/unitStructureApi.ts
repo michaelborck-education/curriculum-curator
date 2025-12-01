@@ -41,7 +41,7 @@ import {
 export const learningOutcomesApi = {
   // ULO Management
   createULO: async (unitId: string, data: ULOCreate): Promise<ULOResponse> => {
-    const response = await api.post(`/api/outcomes/units/${unitId}/ulos`, data);
+    const response = await api.post(`/outcomes/units/${unitId}/ulos`, data);
     return response.data;
   },
 
@@ -49,36 +49,33 @@ export const learningOutcomesApi = {
     unitId: string,
     includeMappings = false
   ): Promise<ULOWithMappings[]> => {
-    const response = await api.get(`/api/outcomes/units/${unitId}/ulos`, {
+    const response = await api.get(`/outcomes/units/${unitId}/ulos`, {
       params: { include_mappings: includeMappings },
     });
     return response.data;
   },
 
   getULO: async (uloId: string): Promise<ULOResponse> => {
-    const response = await api.get(`/api/outcomes/ulos/${uloId}`);
+    const response = await api.get(`/outcomes/ulos/${uloId}`);
     return response.data;
   },
 
   updateULO: async (uloId: string, data: ULOUpdate): Promise<ULOResponse> => {
-    const response = await api.put(`/api/outcomes/ulos/${uloId}`, data);
+    const response = await api.put(`/outcomes/ulos/${uloId}`, data);
     return response.data;
   },
 
   deleteULO: async (uloId: string): Promise<void> => {
-    await api.delete(`/api/outcomes/ulos/${uloId}`);
+    await api.delete(`/outcomes/ulos/${uloId}`);
   },
 
   reorderULOs: async (
     unitId: string,
     outcomeIds: string[]
   ): Promise<ULOResponse[]> => {
-    const response = await api.post(
-      `/api/outcomes/units/${unitId}/ulos/reorder`,
-      {
-        outcomeIds,
-      }
-    );
+    const response = await api.post(`/outcomes/units/${unitId}/ulos/reorder`, {
+      outcomeIds,
+    });
     return response.data;
   },
 
@@ -87,16 +84,14 @@ export const learningOutcomesApi = {
     data: BulkULOCreate
   ): Promise<ULOResponse[]> => {
     const response = await api.post(
-      `/api/outcomes/units/${unitId}/ulos/bulk`,
+      `/outcomes/units/${unitId}/ulos/bulk`,
       data
     );
     return response.data;
   },
 
   getULOCoverage: async (unitId: string): Promise<any> => {
-    const response = await api.get(
-      `/api/outcomes/units/${unitId}/ulos/coverage`
-    );
+    const response = await api.get(`/outcomes/units/${unitId}/ulos/coverage`);
     return response.data;
   },
 
@@ -106,7 +101,7 @@ export const learningOutcomesApi = {
     description: string
   ): Promise<LLOResponse> => {
     const response = await api.post(
-      `/api/outcomes/materials/${materialId}/outcomes`,
+      `/outcomes/materials/${materialId}/outcomes`,
       {
         description,
       }
@@ -120,7 +115,7 @@ export const learningOutcomesApi = {
     description: string
   ): Promise<ALOResponse> => {
     const response = await api.post(
-      `/api/outcomes/assessments/${assessmentId}/outcomes`,
+      `/outcomes/assessments/${assessmentId}/outcomes`,
       {
         description,
       }
@@ -137,7 +132,7 @@ export const materialsApi = {
     data: MaterialCreate
   ): Promise<MaterialResponse> => {
     const response = await api.post(
-      `/api/materials/units/${unitId}/materials`,
+      `/materials/units/${unitId}/materials`,
       data
     );
     return response.data;
@@ -147,7 +142,7 @@ export const materialsApi = {
     unitId: string,
     filter?: MaterialFilter
   ): Promise<MaterialResponse[]> => {
-    const response = await api.get(`/api/materials/units/${unitId}/materials`, {
+    const response = await api.get(`/materials/units/${unitId}/materials`, {
       params: filter,
     });
     return response.data;
@@ -158,7 +153,7 @@ export const materialsApi = {
     weekNumber: number
   ): Promise<WeekMaterials> => {
     const response = await api.get(
-      `/api/materials/units/${unitId}/weeks/${weekNumber}/materials`
+      `/materials/units/${unitId}/weeks/${weekNumber}/materials`
     );
     return response.data;
   },
@@ -167,7 +162,7 @@ export const materialsApi = {
     materialId: string,
     includeOutcomes = false
   ): Promise<MaterialWithOutcomes> => {
-    const response = await api.get(`/api/materials/materials/${materialId}`, {
+    const response = await api.get(`/materials/materials/${materialId}`, {
       params: { include_outcomes: includeOutcomes },
     });
     return response.data;
@@ -177,15 +172,12 @@ export const materialsApi = {
     materialId: string,
     data: MaterialUpdate
   ): Promise<MaterialResponse> => {
-    const response = await api.put(
-      `/api/materials/materials/${materialId}`,
-      data
-    );
+    const response = await api.put(`/materials/materials/${materialId}`, data);
     return response.data;
   },
 
   deleteMaterial: async (materialId: string): Promise<void> => {
-    await api.delete(`/api/materials/materials/${materialId}`);
+    await api.delete(`/materials/materials/${materialId}`);
   },
 
   duplicateMaterial: async (
@@ -193,7 +185,7 @@ export const materialsApi = {
     targetWeek: number
   ): Promise<MaterialResponse> => {
     const response = await api.post(
-      `/api/materials/materials/${materialId}/duplicate`,
+      `/materials/materials/${materialId}/duplicate`,
       {
         targetWeek,
       }
@@ -207,7 +199,7 @@ export const materialsApi = {
     materialIds: string[]
   ): Promise<MaterialResponse[]> => {
     const response = await api.post(
-      `/api/materials/units/${unitId}/weeks/${weekNumber}/materials/reorder`,
+      `/materials/units/${unitId}/weeks/${weekNumber}/materials/reorder`,
       { materialIds }
     );
     return response.data;
@@ -218,7 +210,7 @@ export const materialsApi = {
     uloIds: string[]
   ): Promise<MaterialWithOutcomes> => {
     const response = await api.put(
-      `/api/materials/materials/${materialId}/mappings`,
+      `/materials/materials/${materialId}/mappings`,
       {
         uloIds,
       }
@@ -228,7 +220,7 @@ export const materialsApi = {
 
   getWeekSummary: async (unitId: string, weekNumber: number): Promise<any> => {
     const response = await api.get(
-      `/api/materials/units/${unitId}/weeks/${weekNumber}/summary`
+      `/materials/units/${unitId}/weeks/${weekNumber}/summary`
     );
     return response.data;
   },
@@ -242,7 +234,7 @@ export const assessmentsApi = {
     data: AssessmentCreate
   ): Promise<AssessmentResponse> => {
     const response = await api.post(
-      `/api/assessments/units/${unitId}/assessments`,
+      `/assessments/units/${unitId}/assessments`,
       data
     );
     return response.data;
@@ -252,12 +244,9 @@ export const assessmentsApi = {
     unitId: string,
     filter?: AssessmentFilter
   ): Promise<AssessmentResponse[]> => {
-    const response = await api.get(
-      `/api/assessments/units/${unitId}/assessments`,
-      {
-        params: filter,
-      }
-    );
+    const response = await api.get(`/assessments/units/${unitId}/assessments`, {
+      params: filter,
+    });
     return response.data;
   },
 
@@ -265,12 +254,9 @@ export const assessmentsApi = {
     assessmentId: string,
     includeOutcomes = false
   ): Promise<AssessmentWithOutcomes> => {
-    const response = await api.get(
-      `/api/assessments/assessments/${assessmentId}`,
-      {
-        params: { include_outcomes: includeOutcomes },
-      }
-    );
+    const response = await api.get(`/assessments/assessments/${assessmentId}`, {
+      params: { include_outcomes: includeOutcomes },
+    });
     return response.data;
   },
 
@@ -279,40 +265,40 @@ export const assessmentsApi = {
     data: AssessmentUpdate
   ): Promise<AssessmentResponse> => {
     const response = await api.put(
-      `/api/assessments/assessments/${assessmentId}`,
+      `/assessments/assessments/${assessmentId}`,
       data
     );
     return response.data;
   },
 
   deleteAssessment: async (assessmentId: string): Promise<void> => {
-    await api.delete(`/api/assessments/assessments/${assessmentId}`);
+    await api.delete(`/assessments/assessments/${assessmentId}`);
   },
 
   getGradeDistribution: async (unitId: string): Promise<GradeDistribution> => {
     const response = await api.get(
-      `/api/assessments/units/${unitId}/assessments/grade-distribution`
+      `/assessments/units/${unitId}/assessments/grade-distribution`
     );
     return response.data;
   },
 
   validateWeights: async (unitId: string): Promise<any> => {
     const response = await api.get(
-      `/api/assessments/units/${unitId}/assessments/validate-weights`
+      `/assessments/units/${unitId}/assessments/validate-weights`
     );
     return response.data;
   },
 
   getAssessmentTimeline: async (unitId: string): Promise<any> => {
     const response = await api.get(
-      `/api/assessments/units/${unitId}/assessments/timeline`
+      `/assessments/units/${unitId}/assessments/timeline`
     );
     return response.data;
   },
 
   getAssessmentWorkload: async (unitId: string): Promise<any> => {
     const response = await api.get(
-      `/api/assessments/units/${unitId}/assessments/workload`
+      `/assessments/units/${unitId}/assessments/workload`
     );
     return response.data;
   },
@@ -322,7 +308,7 @@ export const assessmentsApi = {
     uloIds: string[]
   ): Promise<AssessmentWithOutcomes> => {
     const response = await api.put(
-      `/api/assessments/assessments/${assessmentId}/mappings`,
+      `/assessments/assessments/${assessmentId}/mappings`,
       {
         uloIds,
       }
@@ -335,7 +321,7 @@ export const assessmentsApi = {
     materialIds: string[]
   ): Promise<AssessmentWithOutcomes> => {
     const response = await api.put(
-      `/api/assessments/assessments/${assessmentId}/materials`,
+      `/assessments/assessments/${assessmentId}/materials`,
       {
         materialIds,
       }
@@ -348,7 +334,7 @@ export const assessmentsApi = {
 
 export const analyticsApi = {
   getUnitOverview: async (unitId: string): Promise<UnitOverview> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/overview`);
+    const response = await api.get(`/analytics/units/${unitId}/overview`);
     return response.data;
   },
 
@@ -356,19 +342,19 @@ export const analyticsApi = {
     unitId: string,
     includeDetails = false
   ): Promise<any> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/progress`, {
+    const response = await api.get(`/analytics/units/${unitId}/progress`, {
       params: { include_details: includeDetails },
     });
     return response.data;
   },
 
   getCompletionReport: async (unitId: string): Promise<any> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/completion`);
+    const response = await api.get(`/analytics/units/${unitId}/completion`);
     return response.data;
   },
 
   getAlignmentReport: async (unitId: string): Promise<AlignmentReport> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/alignment`);
+    const response = await api.get(`/analytics/units/${unitId}/alignment`);
     return response.data;
   },
 
@@ -377,7 +363,7 @@ export const analyticsApi = {
     startWeek = 1,
     endWeek = 52
   ): Promise<WeeklyWorkload[]> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/workload`, {
+    const response = await api.get(`/analytics/units/${unitId}/workload`, {
       params: { start_week: startWeek, end_week: endWeek },
     });
     return response.data;
@@ -385,7 +371,7 @@ export const analyticsApi = {
 
   getRecommendations: async (unitId: string): Promise<any> => {
     const response = await api.get(
-      `/api/analytics/units/${unitId}/recommendations`
+      `/analytics/units/${unitId}/recommendations`
     );
     return response.data;
   },
@@ -394,31 +380,26 @@ export const analyticsApi = {
     unitId: string,
     format: 'json' | 'csv' | 'pdf' = 'json'
   ): Promise<any> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/export`, {
+    const response = await api.get(`/analytics/units/${unitId}/export`, {
       params: { format },
     });
     return response.data;
   },
 
   getQualityScore: async (unitId: string): Promise<QualityScore> => {
-    const response = await api.get(
-      `/api/analytics/units/${unitId}/quality-score`
-    );
+    const response = await api.get(`/analytics/units/${unitId}/quality-score`);
     return response.data;
   },
 
   validateUnit: async (unitId: string, strict = false): Promise<any> => {
-    const response = await api.get(
-      `/api/analytics/units/${unitId}/validation`,
-      {
-        params: { strict },
-      }
-    );
+    const response = await api.get(`/analytics/units/${unitId}/validation`, {
+      params: { strict },
+    });
     return response.data;
   },
 
   getUnitStatistics: async (unitId: string): Promise<any> => {
-    const response = await api.get(`/api/analytics/units/${unitId}/statistics`);
+    const response = await api.get(`/analytics/units/${unitId}/statistics`);
     return response.data;
   },
 };
