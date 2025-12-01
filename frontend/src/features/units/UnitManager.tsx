@@ -237,12 +237,27 @@ const UnitManager = () => {
   };
 
   const deleteUnit = async (unitId: string) => {
-    if (window.confirm('Are you sure you want to delete this unit?')) {
+    const unitToDelete = units.find(u => u.id === unitId);
+    const unitName = unitToDelete
+      ? `"${unitToDelete.code} - ${unitToDelete.title}"`
+      : 'this unit';
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete ${unitName}?\n\n` +
+        'This will delete:\n' +
+        '- All content and materials\n' +
+        '- All learning outcomes\n' +
+        '- All assessments\n' +
+        '- The entire version history\n\n' +
+        'This action cannot be undone.'
+    );
+
+    if (confirmed) {
       try {
         await deleteUnitApi(unitId);
         setUnits(units.filter(c => c.id !== unitId));
       } catch {
-        // Handle deletion error silently
+        setError('Failed to delete unit. Please try again.');
       }
     }
   };

@@ -20,6 +20,7 @@ from app.schemas.unit import (
     UnitUpdate,
 )
 from app.schemas.user import UserResponse
+from app.services.git_content_service import get_git_service
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +171,8 @@ async def delete_unit(
     current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
 ):
     """
-    Delete a unit and all its content.
+    Delete a unit and all its content, including the Git repository.
+    This is a permanent deletion - there is no recovery.
     """
     # Check if unit exists and user owns it
     existing_unit = unit_repo.get_unit_by_id(db, unit_id)
@@ -185,11 +187,17 @@ async def delete_unit(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
+    # Delete from database (cascades to all related content)
     if not unit_repo.delete_unit(db, unit_id):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete unit",
         )
+
+    # Delete the Git repository for this unit (if it exists)
+    git_service = get_git_service()
+    git_service.delete_unit_repo(unit_id)
+    logger.info(f"[DELETE_UNIT] Deleted unit {unit_id} and its Git repository")
 
 
 @router.post("/{unit_id}/duplicate", response_model=UnitResponse)
