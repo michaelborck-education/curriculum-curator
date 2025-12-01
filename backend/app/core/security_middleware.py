@@ -264,18 +264,19 @@ class TrustedProxyMiddleware(BaseHTTPMiddleware):
 
     def _process_proxy_headers(self, request: Request):
         """Process and validate proxy headers"""
-        # Only trust proxy headers from known proxy IPs
+        # Only trust X-Forwarded-* headers from known proxy IPs
+        # But NEVER clear all headers - that breaks authentication!
         client_ip = request.client.host if request.client else None
 
-        if client_ip not in self.trusted_proxies:
-            # Remove potentially spoofed headers from untrusted sources
-            request.headers.__dict__.get("_list", []).clear()
-            return
-
-        # Process X-Forwarded-For header
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            # Take the first IP in the chain (original client)
-            original_ip = forwarded_for.split(",")[0].strip()
-            # Store in request state for use by rate limiter
-            request.state.original_client_ip = original_ip
+        # Process X-Forwarded-For header only from trusted proxies
+        if client_ip in self.trusted_proxies:
+            forwarded_for = request.headers.get("x-forwarded-for")
+            if forwarded_for:
+                # Take the first IP in the chain (original client)
+                original_ip = forwarded_for.split(",")[0].strip()
+                # Store in request state for use by rate limiter
+                request.state.original_client_ip = original_ip
+        else:
+            # For untrusted proxies, use the direct client IP
+            # but DON'T clear headers - that would break Authorization, etc.
+            request.state.original_client_ip = client_ip

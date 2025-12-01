@@ -133,7 +133,17 @@ app.add_middleware(SecurityHeadersMiddleware)
 # 4. Trusted proxy handling (for load balancers/reverse proxies)
 app.add_middleware(
     TrustedProxyMiddleware,
-    trusted_proxies=["127.0.0.1", "::1"],  # Add your proxy IPs here
+    trusted_proxies=[
+        "127.0.0.1",
+        "::1",
+        "172.17.0.1",  # Docker default bridge
+        "172.18.0.1",  # Docker network
+        "172.19.0.1",  # Docker network
+        "172.20.0.1",  # Docker network
+        "172.21.0.1",  # Docker network
+        "172.22.0.1",  # Docker network (Caddy)
+        "host.docker.internal",  # Docker host
+    ],
 )
 
 # 5. CORS configuration (should be last middleware)

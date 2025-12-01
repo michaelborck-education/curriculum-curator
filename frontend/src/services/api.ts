@@ -17,18 +17,8 @@ const api = axios.create({
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('token');
 
-  // Debug logging - remove after fixing
-  console.log('[API Interceptor] Request to:', config.url);
-  console.log(
-    '[API Interceptor] Token from localStorage:',
-    token ? 'EXISTS' : 'NULL'
-  );
-
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('[API Interceptor] Authorization header SET');
-  } else {
-    console.log('[API Interceptor] Authorization header NOT SET');
   }
 
   // Don't set Content-Type - let axios handle it based on the data type
