@@ -4,15 +4,20 @@ import {
   Routes,
   Route,
   Navigate,
+  useParams,
 } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Dashboard from './components/Layout/Dashboard';
+
+// Layout
+import AppLayout from './components/Layout/AppLayout';
+
+// Pages
+import DashboardPage from './pages/DashboardPage';
+import UnitPage from './pages/UnitPage';
+
+// Features
 import ContentCreator from './features/content/ContentCreator';
 import ContentView from './features/content/ContentView';
-import UnitManager from './features/units/UnitManager';
-// import UnitDashboard from './features/units/UnitDashboard'; // TODO: Re-enable when ready
-import UnitView from './features/units/UnitView';
-import UnitWorkflow from './features/units/UnitWorkflow';
 import Login from './features/auth/Login';
 import Landing from './features/landing/Landing';
 import AdminDashboard from './features/admin/AdminDashboard';
@@ -24,8 +29,20 @@ import MaterialDetail from './features/materials/MaterialDetail';
 import TeachingStyle from './features/teaching/TeachingStyle';
 import AIAssistant from './features/ai/AIAssistant';
 import Settings from './features/settings/Settings';
+
+// Store
 import { useAuthStore } from './stores/authStore';
-import UnitStructure from './features/units/UnitStructure';
+
+// Redirect helper for routes with params
+const UnitDashboardRedirect = () => {
+  const { unitId } = useParams();
+  return <Navigate to={`/units/${unitId}`} replace />;
+};
+
+const UnitStructureRedirect = () => {
+  const { unitId } = useParams();
+  return <Navigate to={`/units/${unitId}?tab=structure`} replace />;
+};
 
 function App() {
   const { isAuthenticated, user, logout, isLoading, initializeAuth } =
@@ -35,6 +52,7 @@ function App() {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
   const [showLogin, setShowLogin] = useState(false);
 
   // Custom logout that resets to landing page
@@ -70,22 +88,32 @@ function App() {
       );
     }
 
-    // Regular users get normal dashboard
+    // Regular users get the new app layout
     return (
       <Router>
         <Toaster position='top-right' />
-        <Dashboard onLogout={handleLogout}>
-          <Routes>
-            <Route path='/' element={<UnitManager />} />
-            <Route path='/dashboard' element={<UnitManager />} />
-            <Route path='/units' element={<UnitManager />} />
+        <Routes>
+          {/* App Layout wrapper with nested routes */}
+          <Route element={<AppLayout onLogout={handleLogout} />}>
+            {/* Dashboard / Home */}
+            <Route path='/' element={<DashboardPage />} />
+            <Route path='/dashboard' element={<DashboardPage />} />
+
+            {/* Unit routes */}
+            <Route path='/units' element={<DashboardPage />} />
+            <Route path='/units/:unitId' element={<UnitPage />} />
+            <Route path='/units/:unitId/edit' element={<UnitPage />} />
+
+            {/* Legacy redirects */}
             <Route path='/courses' element={<Navigate to='/units' replace />} />
-            <Route path='/units/:unitId/dashboard' element={<UnitWorkflow />} />
+            <Route
+              path='/units/:unitId/dashboard'
+              element={<UnitDashboardRedirect />}
+            />
             <Route
               path='/units/:unitId/structure'
-              element={<UnitStructure />}
+              element={<UnitStructureRedirect />}
             />
-            <Route path='/units/:id' element={<UnitView />} />
 
             {/* Content Creation and Viewing */}
             <Route path='/content/new' element={<ContentCreator />} />
@@ -123,9 +151,10 @@ function App() {
               element={<LRDCreator />}
             />
 
+            {/* Catch-all redirect */}
             <Route path='*' element={<Navigate to='/dashboard' replace />} />
-          </Routes>
-        </Dashboard>
+          </Route>
+        </Routes>
       </Router>
     );
   }

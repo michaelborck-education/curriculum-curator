@@ -79,9 +79,7 @@ const ContentCreator = () => {
   const fetchUnits = async () => {
     try {
       const response = await getUnits();
-      // API returns { units: [...], total: X }
-      const unitList = response.data;
-      setUnits(Array.isArray(unitList?.units) ? unitList.units : []);
+      setUnits(response.data?.units ?? []);
     } catch (error) {
       console.error('Failed to fetch units:', error);
       toast.error('Failed to load units');

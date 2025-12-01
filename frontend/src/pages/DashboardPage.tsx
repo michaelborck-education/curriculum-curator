@@ -3,23 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   BookOpen,
-  Users,
   Calendar,
   ChevronRight,
-  Edit,
   Trash2,
-  FileText,
   CheckCircle,
   Clock,
-  Target,
+  TrendingUp,
 } from 'lucide-react';
-import api, {
+import {
   createUnit as createUnitApi,
   getUnits as getUnitsApi,
   deleteUnit as deleteUnitApi,
-} from '../../services/api';
-
-// Import shared UI components
+} from '../services/api';
 import {
   Modal,
   Alert,
@@ -29,11 +24,10 @@ import {
   FormInput,
   FormTextarea,
   FormSelect,
-} from '../../components/ui';
-import { useModal } from '../../hooks';
-
-// Import Unit type from global types
-import type { Unit } from '../../types';
+} from '../components/ui';
+import { useModal } from '../hooks';
+import type { Unit } from '../types';
+import toast from 'react-hot-toast';
 
 interface UnitFormData {
   title: string;
@@ -88,16 +82,12 @@ const difficultyOptions = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
-const UnitManager = () => {
+const DashboardPage = () => {
   const navigate = useNavigate();
   const createModal = useModal();
 
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [systemDefaults, setSystemDefaults] = useState({
-    creditPoints: 25,
-    durationWeeks: 12,
-  });
   const [newUnit, setNewUnit] = useState<UnitFormData>(initialFormData);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -114,30 +104,9 @@ const UnitManager = () => {
     }
   }, []);
 
-  const fetchSystemDefaults = useCallback(async () => {
-    try {
-      const response = await api.get('/admin/settings');
-      if (response.data) {
-        const defaults = {
-          creditPoints: response.data.defaultCreditPoints || 25,
-          durationWeeks: response.data.defaultDurationWeeks || 12,
-        };
-        setSystemDefaults(defaults);
-        setNewUnit(prev => ({
-          ...prev,
-          creditPoints: defaults.creditPoints,
-          durationWeeks: defaults.durationWeeks,
-        }));
-      }
-    } catch {
-      // Use default values if settings can't be fetched
-    }
-  }, []);
-
   useEffect(() => {
     fetchUnits();
-    fetchSystemDefaults();
-  }, [fetchUnits, fetchSystemDefaults]);
+  }, [fetchUnits]);
 
   const createUnit = async () => {
     setError(null);
@@ -165,9 +134,11 @@ const UnitManager = () => {
       };
 
       const response = await createUnitApi(unitData);
-      setUnits([...units, response.data]);
+      toast.success('Unit created successfully');
       createModal.close();
       resetForm();
+      // Navigate to the new unit
+      navigate(`/units/${response.data.id}`);
     } catch (err: unknown) {
       const errorMessage = extractErrorMessage(err);
       setError(errorMessage);
@@ -221,11 +192,7 @@ const UnitManager = () => {
   };
 
   const resetForm = () => {
-    setNewUnit({
-      ...initialFormData,
-      durationWeeks: systemDefaults.durationWeeks,
-      creditPoints: systemDefaults.creditPoints,
-    });
+    setNewUnit(initialFormData);
     setError(null);
   };
 
@@ -234,7 +201,8 @@ const UnitManager = () => {
     createModal.open();
   };
 
-  const deleteUnit = async (unitId: string) => {
+  const deleteUnit = async (unitId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     const unitToDelete = units.find(u => u.id === unitId);
     const unitName = unitToDelete
       ? `"${unitToDelete.code} - ${unitToDelete.title}"`
@@ -254,35 +222,35 @@ const UnitManager = () => {
       try {
         await deleteUnitApi(unitId);
         setUnits(units.filter(c => c.id !== unitId));
+        toast.success('Unit deleted successfully');
       } catch {
-        setError('Failed to delete unit. Please try again.');
+        toast.error('Failed to delete unit');
       }
     }
   };
 
+  const updateField = (field: keyof UnitFormData, value: string | number) => {
+    setNewUnit(prev => ({ ...prev, [field]: value }));
+  };
+
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { color: string; icon: typeof Edit }> = {
-      PLANNING: { color: 'bg-gray-100 text-gray-800', icon: Edit },
-      ACTIVE: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      COMPLETED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-      ARCHIVED: { color: 'bg-gray-100 text-gray-600', icon: Clock },
+    const statusConfig: Record<string, { color: string; label: string }> = {
+      PLANNING: { color: 'bg-gray-100 text-gray-800', label: 'Planning' },
+      ACTIVE: { color: 'bg-green-100 text-green-800', label: 'Active' },
+      COMPLETED: { color: 'bg-blue-100 text-blue-800', label: 'Completed' },
+      ARCHIVED: { color: 'bg-gray-100 text-gray-600', label: 'Archived' },
+      draft: { color: 'bg-yellow-100 text-yellow-800', label: 'Draft' },
     };
 
     const config = statusConfig[status] || statusConfig.PLANNING;
-    const Icon = config.icon;
 
     return (
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}
       >
-        <Icon className='h-3 w-3 mr-1' />
-        {status}
+        {config.label}
       </span>
     );
-  };
-
-  const updateField = (field: keyof UnitFormData, value: string | number) => {
-    setNewUnit(prev => ({ ...prev, [field]: value }));
   };
 
   if (loading) {
@@ -290,16 +258,13 @@ const UnitManager = () => {
   }
 
   return (
-    <div className='p-6'>
+    <div className='p-6 max-w-7xl mx-auto'>
       {/* Header */}
-      <div className='flex justify-between items-center mb-8'>
+      <div className='flex justify-between items-start mb-8'>
         <div>
-          <h1 className='text-3xl font-bold text-gray-900'>My Units</h1>
+          <h1 className='text-3xl font-bold text-gray-900'>Dashboard</h1>
           <p className='text-gray-600 mt-2'>
-            Manage your unit curriculum and learning resources
-          </p>
-          <p className='text-sm text-gray-500 mt-1'>
-            {units.length} unit(s) loaded
+            Manage your units and curriculum content
           </p>
         </div>
         <Button onClick={openCreateModal}>
@@ -308,7 +273,57 @@ const UnitManager = () => {
         </Button>
       </div>
 
-      {/* Units Grid */}
+      {/* Quick Stats */}
+      <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-8'>
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <p className='text-sm text-gray-500'>Total Units</p>
+              <p className='text-2xl font-bold text-gray-900'>{units.length}</p>
+            </div>
+            <BookOpen className='w-8 h-8 text-purple-500' />
+          </div>
+        </div>
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <p className='text-sm text-gray-500'>Active</p>
+              <p className='text-2xl font-bold text-gray-900'>
+                {units.filter(u => u.status === 'ACTIVE').length}
+              </p>
+            </div>
+            <CheckCircle className='w-8 h-8 text-green-500' />
+          </div>
+        </div>
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <p className='text-sm text-gray-500'>In Progress</p>
+              <p className='text-2xl font-bold text-gray-900'>
+                {
+                  units.filter(
+                    u => u.status === 'PLANNING' || u.status === 'draft'
+                  ).length
+                }
+              </p>
+            </div>
+            <Clock className='w-8 h-8 text-yellow-500' />
+          </div>
+        </div>
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <p className='text-sm text-gray-500'>Total Credits</p>
+              <p className='text-2xl font-bold text-gray-900'>
+                {units.reduce((sum, u) => sum + (u.creditPoints || 0), 0)}
+              </p>
+            </div>
+            <TrendingUp className='w-8 h-8 text-blue-500' />
+          </div>
+        </div>
+      </div>
+
+      {/* Units List */}
       {units.length === 0 ? (
         <EmptyState
           icon={BookOpen}
@@ -318,138 +333,54 @@ const UnitManager = () => {
           onAction={openCreateModal}
         />
       ) : (
-        <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
-          {units.map(unit => (
-            <div
-              key={unit.id}
-              className='bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer'
-              onClick={() => navigate(`/units/${unit.id}/dashboard`)}
-            >
-              <div className='p-6'>
-                {/* Unit Header */}
-                <div className='flex justify-between items-start mb-4'>
-                  <div className='flex-1'>
-                    <h3 className='text-lg font-semibold text-gray-900 mb-1'>
-                      {unit.title}
+        <div className='bg-white rounded-lg shadow-sm border border-gray-200'>
+          <div className='px-6 py-4 border-b border-gray-200'>
+            <h2 className='text-lg font-semibold text-gray-900'>My Units</h2>
+          </div>
+          <div className='divide-y divide-gray-200'>
+            {units.map(unit => (
+              <div
+                key={unit.id}
+                className='px-6 py-4 hover:bg-gray-50 cursor-pointer transition flex items-center justify-between'
+                onClick={() => navigate(`/units/${unit.id}`)}
+              >
+                <div className='flex-1 min-w-0'>
+                  <div className='flex items-center gap-3'>
+                    <h3 className='text-sm font-semibold text-gray-900'>
+                      {unit.code}
                     </h3>
-                    <p className='text-sm text-gray-600'>{unit.code}</p>
+                    {getStatusBadge(unit.status)}
                   </div>
-                  {getStatusBadge(unit.status)}
-                </div>
-
-                {/* Unit Description */}
-                {unit.description && (
-                  <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
-                    {unit.description}
+                  <p className='text-sm text-gray-600 mt-1 truncate'>
+                    {unit.title}
                   </p>
-                )}
-
-                {/* Unit Stats */}
-                <div className='space-y-2 mb-4'>
-                  <div className='flex items-center text-sm text-gray-600'>
-                    <Calendar className='h-4 w-4 mr-2' />
-                    {unit.semester || 'Not set'} • {unit.creditPoints || 0}{' '}
-                    credits
-                  </div>
-                  <div className='flex items-center text-sm text-gray-600'>
-                    <Users className='h-4 w-4 mr-2' />
-                    {unit.pedagogyType
-                      ? unit.pedagogyType
-                          .replace(/-/g, ' ')
-                          .replace(/\b\w/g, l => l.toUpperCase())
-                      : 'Not specified'}
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                {unit.progressPercentage !== undefined && (
-                  <div className='mb-4'>
-                    <div className='flex justify-between text-sm mb-1'>
-                      <span className='text-gray-600'>Progress</span>
-                      <span className='font-medium'>
-                        {unit.progressPercentage}%
+                  <div className='flex items-center gap-4 mt-2 text-xs text-gray-500'>
+                    <span className='flex items-center gap-1'>
+                      <Calendar className='w-3.5 h-3.5' />
+                      {unit.semester}
+                    </span>
+                    <span>{unit.creditPoints} credits</span>
+                    <span>{unit.durationWeeks} weeks</span>
+                    {unit.pedagogyType && (
+                      <span className='capitalize'>
+                        {unit.pedagogyType.replace(/-/g, ' ')}
                       </span>
-                    </div>
-                    <div className='w-full bg-gray-200 rounded-full h-2'>
-                      <div
-                        className='bg-blue-600 h-2 rounded-full transition-all'
-                        style={{ width: `${unit.progressPercentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Quick Stats */}
-                <div className='grid grid-cols-3 gap-2 mb-4'>
-                  <div className='text-center'>
-                    <p className='text-lg font-semibold text-gray-900'>
-                      {unit.moduleCount || 0}
-                    </p>
-                    <p className='text-xs text-gray-600'>Modules</p>
-                  </div>
-                  <div className='text-center'>
-                    <p className='text-lg font-semibold text-gray-900'>
-                      {unit.materialCount || 0}
-                    </p>
-                    <p className='text-xs text-gray-600'>Materials</p>
-                  </div>
-                  <div className='text-center'>
-                    <p className='text-lg font-semibold text-gray-900'>
-                      {unit.lrdCount || 0}
-                    </p>
-                    <p className='text-xs text-gray-600'>LRDs</p>
+                    )}
                   </div>
                 </div>
-
-                {/* Actions */}
-                <div className='flex justify-between items-center'>
-                  <div className='flex space-x-2'>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        navigate(`/units/${unit.id}/structure`);
-                      }}
-                      className='p-2 text-purple-600 hover:bg-purple-50 rounded-lg'
-                      title='Unit Structure'
-                    >
-                      <Target className='h-4 w-4' />
-                    </button>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        navigate(`/units/${unit.id}/dashboard`);
-                      }}
-                      className='p-2 text-blue-600 hover:bg-blue-50 rounded-lg'
-                      title='Manage LRDs'
-                    >
-                      <FileText className='h-4 w-4' />
-                    </button>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        // Navigate to edit unit
-                      }}
-                      className='p-2 text-gray-600 hover:bg-gray-50 rounded-lg'
-                      title='Edit Unit'
-                    >
-                      <Edit className='h-4 w-4' />
-                    </button>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        deleteUnit(unit.id);
-                      }}
-                      className='p-2 text-red-600 hover:bg-red-50 rounded-lg'
-                      title='Delete Unit'
-                    >
-                      <Trash2 className='h-4 w-4' />
-                    </button>
-                  </div>
+                <div className='flex items-center gap-2 ml-4'>
+                  <button
+                    onClick={e => deleteUnit(unit.id, e)}
+                    className='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition'
+                    title='Delete Unit'
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </button>
                   <ChevronRight className='h-5 w-5 text-gray-400' />
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -565,4 +496,4 @@ const UnitManager = () => {
   );
 };
 
-export default UnitManager;
+export default DashboardPage;

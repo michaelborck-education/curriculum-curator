@@ -2,6 +2,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import type {
   ApiResponse,
   Unit,
+  UnitListResponse,
   PedagogyType,
   ContentType,
 } from '../types/index';
@@ -77,7 +78,8 @@ export const enhanceContent = (
   });
 
 // Unit endpoints
-export const getUnits = (): Promise<ApiResponse<Unit[]>> => api.get('/units');
+export const getUnits = (): Promise<ApiResponse<UnitListResponse>> =>
+  api.get('/units');
 export const getUnit = (id: string): Promise<ApiResponse<Unit>> =>
   api.get(`/units/${id}`);
 

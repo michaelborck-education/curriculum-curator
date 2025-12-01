@@ -106,6 +106,11 @@ export interface ContentLegacy {
   updatedAt: string;
 }
 
+export interface UnitListResponse {
+  units: Unit[];
+  total: number;
+}
+
 export interface ContentListResponse {
   contents: Content[];
   total: number;
