@@ -130,6 +130,7 @@ const ImportMaterials = () => {
         ['.docx'],
       'text/markdown': ['.md'],
       'text/plain': ['.txt'],
+      'text/html': ['.html', '.htm'],
     },
   });
 
@@ -371,7 +372,7 @@ const ImportMaterials = () => {
                 Drag & drop files here, or click to select
               </p>
               <p className='text-sm text-gray-500'>
-                Supported formats: PDF, PPT, PPTX, DOC, DOCX, MD, TXT
+                Supported formats: PDF, PPT, PPTX, DOC, DOCX, MD, TXT, HTML
               </p>
             </>
           )}
