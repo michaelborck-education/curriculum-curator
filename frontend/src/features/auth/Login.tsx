@@ -38,8 +38,16 @@ const Login = ({ onBackToLanding }: LoginProps) => {
       if (response.status === 200) {
         const { access_token, user } = response.data;
 
+        console.log('[Login] Received token:', access_token ? 'YES' : 'NO');
         localStorage.setItem('token', access_token);
+        console.log('[Login] Token saved to localStorage');
+        console.log(
+          '[Login] Verify token in localStorage:',
+          localStorage.getItem('token') ? 'EXISTS' : 'NULL'
+        );
+
         login(user);
+        console.log('[Login] Auth store updated, navigating...');
 
         if (user.role === 'admin') {
           navigate('/admin');
