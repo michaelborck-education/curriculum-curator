@@ -51,8 +51,6 @@ async def get_units(
     """
     Get all units for the current user with optional filtering.
     """
-    logger.info(f"[GET_UNITS] User: {current_user.email}, ID: {current_user.id}")
-
     units = unit_repo.search_units(
         db,
         owner_id=current_user.id,
@@ -61,10 +59,6 @@ async def get_units(
         skip=skip,
         limit=limit,
     )
-
-    logger.info(f"[GET_UNITS] Found {len(units)} units for user {current_user.id}")
-    for u in units:
-        logger.info(f"[GET_UNITS]   - {u.id}: {u.title} (owner: {u.owner_id})")
 
     return UnitList(units=units, total=len(units))
 
@@ -129,9 +123,8 @@ async def create_unit(
             detail=f"Unit with code {unit_data.code} already exists",
         )
 
-    logger.info(f"[CREATE_UNIT] Creating unit with owner_id: {current_user.id}")
     unit = unit_repo.create_unit(db, data=unit_data, owner_id=current_user.id)
-    logger.info(f"[CREATE_UNIT] Unit created: {unit.id}, owner_id: {unit.owner_id}")
+    logger.info(f"[CREATE_UNIT] Unit created: {unit.id}")
 
     return unit
 

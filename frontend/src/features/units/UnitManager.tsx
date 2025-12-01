@@ -106,7 +106,9 @@ const UnitManager = () => {
     try {
       setLoading(true);
       const response = await getUnitsApi();
-      setUnits(Array.isArray(response.data) ? response.data : []);
+      // API returns { units: [...], total: X }
+      const unitList = response.data;
+      setUnits(Array.isArray(unitList?.units) ? unitList.units : []);
     } catch {
       // Handle error silently
     } finally {
