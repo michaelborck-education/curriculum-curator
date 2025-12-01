@@ -18,8 +18,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import {
+  useTeachingStyleStore,
+  pedagogyOptions,
+} from '../../stores/teachingStyleStore';
 import { getUnits } from '../../services/api';
-import type { Unit } from '../../types';
+import type { Unit, PedagogyType } from '../../types';
 
 interface AppLayoutProps {
   onLogout?: () => void;
@@ -42,6 +46,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout: authStoreLogout } = useAuthStore();
+  const { globalStyle, setGlobalStyle } = useTeachingStyleStore();
   const logout = onLogout || authStoreLogout;
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -49,6 +54,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
 
   // Get current unit ID from URL
   const currentUnitId = location.pathname.match(/\/units\/([^/]+)/)?.[1];
@@ -402,6 +408,77 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
               </div>
 
               <div className='flex items-center gap-4'>
+                {/* Teaching Style Selector */}
+                <div className='relative'>
+                  <button
+                    onClick={() => setStyleDropdownOpen(!styleDropdownOpen)}
+                    className='flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition text-sm font-medium'
+                  >
+                    <Sparkles className='w-4 h-4' />
+                    <span className='hidden sm:inline'>
+                      {pedagogyOptions.find(p => p.id === globalStyle)
+                        ?.shortName || 'Style'}
+                    </span>
+                    <ChevronDown className='w-4 h-4' />
+                  </button>
+
+                  {styleDropdownOpen && (
+                    <>
+                      <div
+                        className='fixed inset-0 z-10'
+                        onClick={() => setStyleDropdownOpen(false)}
+                      />
+                      <div className='absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20'>
+                        <div className='px-3 py-2 border-b border-gray-100'>
+                          <p className='text-xs font-semibold text-gray-500 uppercase'>
+                            Global Teaching Style
+                          </p>
+                          <p className='text-xs text-gray-400 mt-0.5'>
+                            Used for AI content generation
+                          </p>
+                        </div>
+                        <div className='max-h-80 overflow-y-auto'>
+                          {pedagogyOptions.map(option => (
+                            <button
+                              key={option.id}
+                              onClick={() => {
+                                setGlobalStyle(option.id as PedagogyType);
+                                setStyleDropdownOpen(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-start gap-3 ${
+                                globalStyle === option.id ? 'bg-purple-50' : ''
+                              }`}
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                                  globalStyle === option.id
+                                    ? 'bg-purple-600'
+                                    : 'bg-gray-300'
+                                }`}
+                              />
+                              <div>
+                                <p
+                                  className={`text-sm font-medium ${
+                                    globalStyle === option.id
+                                      ? 'text-purple-700'
+                                      : 'text-gray-900'
+                                  }`}
+                                >
+                                  {option.name}
+                                </p>
+                                <p className='text-xs text-gray-500'>
+                                  {option.description}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* User Menu */}
                 <div className='flex items-center gap-2'>
                   <div className='w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium'>
                     {user?.name?.charAt(0) || 'U'}

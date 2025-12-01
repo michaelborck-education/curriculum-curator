@@ -31,8 +31,11 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { materialsApi } from '../../services/unitStructureApi';
+import { generateContent } from '../../services/api';
 import {
   MaterialResponse,
   MaterialCreate,
@@ -41,6 +44,12 @@ import {
   MaterialStatus,
   WeekMaterials,
 } from '../../types/unitStructure';
+import {
+  useTeachingStyleStore,
+  pedagogyOptions,
+  getPedagogyHint,
+} from '../../stores/teachingStyleStore';
+import type { PedagogyType } from '../../types';
 import toast from 'react-hot-toast';
 
 interface WeeklyMaterialsManagerProps {
@@ -54,6 +63,9 @@ interface MaterialFormData {
   description: string;
   durationMinutes: number;
   status: MaterialStatus;
+  topic: string;
+  useAI: boolean;
+  overrideStyle: PedagogyType | null;
 }
 
 const materialTypeIcons: Record<MaterialType, React.ReactElement> = {
@@ -197,6 +209,7 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
   unitId,
   weekNumber,
 }) => {
+  const { globalStyle } = useTeachingStyleStore();
   const [weekMaterials, setWeekMaterials] = useState<WeekMaterials | null>(
     null
   );
@@ -205,12 +218,16 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingMaterial, setEditingMaterial] =
     useState<MaterialResponse | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [formData, setFormData] = useState<MaterialFormData>({
     title: '',
     type: MaterialType.LECTURE,
     description: '',
     durationMinutes: 60,
     status: MaterialStatus.DRAFT,
+    topic: '',
+    useAI: false,
+    overrideStyle: null,
   });
 
   const sensors = useSensors(
@@ -293,6 +310,9 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
       description: material.description || '',
       durationMinutes: material.durationMinutes || 60,
       status: material.status,
+      topic: '',
+      useAI: false,
+      overrideStyle: null,
     });
     setShowForm(true);
   };
@@ -345,7 +365,52 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
       description: '',
       durationMinutes: 60,
       status: MaterialStatus.DRAFT,
+      topic: '',
+      useAI: false,
+      overrideStyle: null,
     });
+  };
+
+  const handleGenerateAI = async () => {
+    if (!formData.topic.trim()) {
+      toast.error('Please enter a topic for AI generation');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const style = formData.overrideStyle || globalStyle;
+      // Map material type to content type for API
+      const contentType =
+        formData.type === MaterialType.LECTURE
+          ? 'lecture'
+          : formData.type === MaterialType.ASSIGNMENT
+            ? 'assignment'
+            : formData.type === MaterialType.LAB
+              ? 'project'
+              : 'lecture';
+
+      const response = await generateContent(
+        contentType,
+        style,
+        formData.topic
+      );
+      const generatedContent = response.data?.content || '';
+
+      // Set the generated content as description
+      setFormData(prev => ({
+        ...prev,
+        description: generatedContent,
+        title: prev.title || formData.topic,
+      }));
+
+      toast.success('Content generated! Review and save when ready.');
+    } catch (error) {
+      console.error('Error generating content:', error);
+      toast.error('Failed to generate content. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -416,21 +481,6 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
           </h4>
 
           <form onSubmit={handleSubmit} className='space-y-4'>
-            <div>
-              <label className='block text-sm font-medium text-gray-700'>
-                Title *
-              </label>
-              <input
-                type='text'
-                value={formData.title}
-                onChange={e =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
-                required
-              />
-            </div>
-
             <div className='grid grid-cols-2 gap-4'>
               <div>
                 <label className='block text-sm font-medium text-gray-700'>
@@ -475,15 +525,135 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
 
             <div>
               <label className='block text-sm font-medium text-gray-700'>
-                Description
+                Title *
+              </label>
+              <input
+                type='text'
+                value={formData.title}
+                onChange={e =>
+                  setFormData({ ...formData, title: e.target.value })
+                }
+                className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
+                placeholder='e.g., Introduction to Machine Learning'
+                required
+              />
+            </div>
+
+            {/* AI Generation Section */}
+            <div className='border border-purple-200 rounded-lg p-4 bg-purple-50'>
+              <div className='flex items-center justify-between mb-3'>
+                <div className='flex items-center gap-2'>
+                  <Sparkles className='w-5 h-5 text-purple-600' />
+                  <span className='font-medium text-purple-900'>
+                    AI Content Generation
+                  </span>
+                </div>
+                <label className='flex items-center gap-2 cursor-pointer'>
+                  <input
+                    type='checkbox'
+                    checked={formData.useAI}
+                    onChange={e =>
+                      setFormData({ ...formData, useAI: e.target.checked })
+                    }
+                    className='rounded border-gray-300 text-purple-600 focus:ring-purple-500'
+                  />
+                  <span className='text-sm text-gray-700'>Enable AI</span>
+                </label>
+              </div>
+
+              {formData.useAI && (
+                <div className='space-y-3'>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700'>
+                      Topic for AI Generation
+                    </label>
+                    <input
+                      type='text'
+                      value={formData.topic}
+                      onChange={e =>
+                        setFormData({ ...formData, topic: e.target.value })
+                      }
+                      className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500'
+                      placeholder='e.g., Supervised vs unsupervised learning algorithms'
+                    />
+                    <p className='text-xs text-gray-500 mt-1'>
+                      Describe what you want the AI to generate content about
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700'>
+                      Teaching Style
+                    </label>
+                    <div className='flex items-center gap-2 mt-1'>
+                      <select
+                        value={formData.overrideStyle || ''}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            overrideStyle: e.target.value
+                              ? (e.target.value as PedagogyType)
+                              : null,
+                          })
+                        }
+                        className='block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500'
+                      >
+                        <option value=''>
+                          Use Global (
+                          {pedagogyOptions.find(p => p.id === globalStyle)
+                            ?.name || globalStyle}
+                          )
+                        </option>
+                        {pedagogyOptions.map(option => (
+                          <option key={option.id} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className='text-xs text-purple-600 mt-1'>
+                      {getPedagogyHint(formData.overrideStyle || globalStyle)}
+                    </p>
+                  </div>
+
+                  <button
+                    type='button'
+                    onClick={handleGenerateAI}
+                    disabled={isGenerating || !formData.topic.trim()}
+                    className='w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className='w-4 h-4 animate-spin' />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className='w-4 h-4' />
+                        Generate Content
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className='block text-sm font-medium text-gray-700'>
+                Description / Content
               </label>
               <textarea
                 value={formData.description}
                 onChange={e =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                rows={3}
-                className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500'
+                rows={formData.useAI ? 10 : 3}
+                className='mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm'
+                placeholder={
+                  formData.useAI
+                    ? 'AI-generated content will appear here...'
+                    : 'Enter a description for this material...'
+                }
               />
             </div>
 
@@ -519,7 +689,8 @@ export const WeeklyMaterialsManager: React.FC<WeeklyMaterialsManagerProps> = ({
               </button>
               <button
                 type='submit'
-                className='px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700'
+                disabled={isGenerating}
+                className='px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
               >
                 {editingMaterial ? 'Update' : 'Create'}
               </button>
