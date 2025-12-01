@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -28,7 +28,13 @@ import { useAuthStore } from './stores/authStore';
 import UnitStructure from './features/units/UnitStructure';
 
 function App() {
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, logout, isLoading, initializeAuth } =
+    useAuthStore();
+
+  // Initialize auth on app load
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
   const [showLogin, setShowLogin] = useState(false);
 
   // Custom logout that resets to landing page
@@ -36,6 +42,18 @@ function App() {
     logout();
     setShowLogin(false); // Go back to landing page
   };
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto'></div>
+          <p className='mt-4 text-gray-600'>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If authenticated, show appropriate dashboard based on role
   if (isAuthenticated && user) {

@@ -30,6 +30,19 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+// Handle 401 responses - clear token and redirect to login
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Token is invalid or expired
+      localStorage.removeItem('token');
+      // Let the component handle the redirect via auth store
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth endpoints - now using simple JSON
 export const login = (email: string, password: string): Promise<ApiResponse> =>
   api.post('/auth/login', { email, password });
