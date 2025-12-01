@@ -13,8 +13,11 @@ An Architecture Decision Record captures an important architectural decision mad
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0018](0018-workflow-flexibility-philosophy.md) | **Workflow Flexibility Philosophy** | **Accepted** |
+| [0020](0020-ai-optional-user-empowerment.md) | **AI-Optional User Empowerment** | **Accepted** |
 
 > *"Assist any workflow, don't enforce"* - This principle informs all other architectural decisions.
+> 
+> *"AI assists, never gates"* - Every task achievable with AI must be equally achievable without it.
 
 ### Current Stack (Active Decisions)
 
@@ -38,6 +41,7 @@ An Architecture Decision Record captures an important architectural decision mad
 ### User Experience
 - [ADR-0004: Teaching Philosophy System](0004-teaching-philosophy-system.md) - Personalization framework
 - [ADR-0018: Workflow Flexibility](0018-workflow-flexibility-philosophy.md) - Assist, don't enforce
+- [ADR-0020: AI-Optional User Empowerment](0020-ai-optional-user-empowerment.md) - AI assists, never gates
 
 ### Authentication & Security
 - [ADR-0007: Simple Authentication for Internal Network](0007-simple-authentication-internal-network.md) - Basic auth approach
