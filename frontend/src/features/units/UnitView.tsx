@@ -404,21 +404,21 @@ const UnitView = () => {
             <h3 className='text-lg font-semibold mb-4'>Quick Actions</h3>
             <div className='space-y-2'>
               <Link
-                to={`/create/lecture`}
+                to={`/create/lecture?unit=${id}`}
                 className='w-full px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center justify-center gap-2'
               >
                 <BookOpen size={18} />
                 Add Lecture
               </Link>
               <Link
-                to={`/create/assignment`}
+                to={`/create/assignment?unit=${id}`}
                 className='w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2'
               >
                 <Edit size={18} />
                 Add Assignment
               </Link>
               <Link
-                to={`/create/quiz`}
+                to={`/create/quiz?unit=${id}`}
                 className='w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2'
               >
                 <Users size={18} />
