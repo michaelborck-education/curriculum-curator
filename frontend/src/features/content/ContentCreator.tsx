@@ -5,6 +5,8 @@ import PedagogySelector from '../../components/Wizard/PedagogySelector';
 import {
   enhanceContent,
   createContent,
+  updateContent,
+  getContent,
   getUnits,
   generateContent,
 } from '../../services/api';
@@ -13,20 +15,62 @@ import toast from 'react-hot-toast';
 import type { ContentType, PedagogyType, Unit } from '../../types/index';
 
 const ContentCreator = () => {
-  const { type } = useParams<{ type: ContentType }>();
+  const { type, unitId, contentId } = useParams<{
+    type?: ContentType;
+    unitId?: string;
+    contentId?: string;
+  }>();
   const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+  const [contentType, setContentType] = useState<string>(type || 'lecture');
   const [units, setUnits] = useState<Unit[]>([]);
   const [pedagogy, setPedagogy] = useState<PedagogyType>('inquiry-based');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Determine if we're in edit mode
+  const isEditMode = Boolean(unitId && contentId);
 
   useEffect(() => {
     fetchUnits();
   }, []);
+
+  // Load existing content if in edit mode
+  useEffect(() => {
+    const loadExistingContent = async () => {
+      if (!unitId || !contentId) return;
+
+      setIsLoading(true);
+      try {
+        const response = await getContent(unitId, contentId);
+        const data = response.data;
+        setTitle(data.title);
+        setContent(data.body || '');
+        setContentType(data.contentType);
+        setSelectedUnitId(data.unitId);
+      } catch (error) {
+        console.error('Failed to load content:', error);
+        toast.error('Failed to load content for editing');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isEditMode && unitId && contentId) {
+      loadExistingContent();
+    }
+  }, [isEditMode, unitId, contentId]);
+
+  // Pre-select unit if unitId is in URL
+  useEffect(() => {
+    if (unitId) {
+      setSelectedUnitId(unitId);
+    }
+  }, [unitId]);
 
   const fetchUnits = async () => {
     try {
@@ -102,32 +146,55 @@ const ContentCreator = () => {
 
     setIsSaving(true);
     try {
-      await createContent({
-        title: title.trim(),
-        type: type || 'lecture',
-        unit_id: selectedUnitId,
-        content_markdown: content,
-      });
-
-      toast.success('Content saved successfully!');
+      if (isEditMode && contentId) {
+        // Update existing content
+        await updateContent(selectedUnitId, contentId, {
+          title: title.trim(),
+          body: content,
+        });
+        toast.success('Content updated successfully!');
+      } else {
+        // Create new content
+        await createContent(selectedUnitId, {
+          title: title.trim(),
+          contentType: contentType || 'lecture',
+          body: content,
+        });
+        toast.success('Content saved successfully!');
+      }
       navigate(`/units/${selectedUnitId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving content:', error);
-      toast.error(error.response?.data?.message || 'Failed to save content');
+      const axiosError = error as { response?: { data?: { detail?: string } } };
+      toast.error(
+        axiosError.response?.data?.detail || 'Failed to save content'
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className='max-w-6xl mx-auto p-6 flex items-center justify-center h-64'>
+        <Loader2 className='animate-spin text-purple-600' size={48} />
+      </div>
+    );
+  }
+
   return (
     <div className='max-w-6xl mx-auto p-6'>
       <div className='mb-6'>
         <h1 className='text-3xl font-bold text-gray-900 mb-2'>
-          Create{' '}
-          {type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Content'}
+          {isEditMode ? 'Edit' : 'Create'}{' '}
+          {contentType
+            ? contentType.charAt(0).toUpperCase() + contentType.slice(1)
+            : 'Content'}
         </h1>
         <p className='text-gray-600'>
-          AI-powered content creation with pedagogical alignment
+          {isEditMode
+            ? 'Update your content below'
+            : 'AI-powered content creation with pedagogical alignment'}
         </p>
       </div>
 
@@ -163,7 +230,8 @@ const ContentCreator = () => {
                     id='unit'
                     value={selectedUnitId}
                     onChange={e => setSelectedUnitId(e.target.value)}
-                    className='w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500'
+                    disabled={isEditMode}
+                    className='w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed'
                   >
                     <option value=''>Select a unit...</option>
                     {units.map(unit => (
@@ -227,7 +295,7 @@ const ContentCreator = () => {
                     ) : (
                       <Save size={18} />
                     )}
-                    Save
+                    {isEditMode ? 'Update' : 'Save'}
                   </button>
                 </div>
               </div>

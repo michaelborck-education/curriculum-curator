@@ -77,10 +77,15 @@ class Content(Base):
         String(20), default=ContentStatus.DRAFT.value, index=True
     )
 
-    # Content data (stored as Markdown)
+    # Content data
+    # NOTE: Body is stored in Git for version control. These fields are for caching/legacy:
     content_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Git storage references (primary storage for body)
+    git_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    current_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     # Hierarchical organization
     unit_id: Mapped[str] = mapped_column(GUID(), ForeignKey("units.id"), index=True)

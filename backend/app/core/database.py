@@ -1,34 +1,43 @@
 """
-Database configuration and session management for Curriculum Curator
+SQLAlchemy database configuration for Curriculum Curator
+
+Provides database engine, session management, and Base class for ORM models.
 """
 
-from collections.abc import Generator
+from collections.abc import Iterator
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from app.core.config import settings
 
-# Create database engine
+# Create SQLAlchemy engine
+# For SQLite, we need check_same_thread=False for FastAPI's async handling
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args={"check_same_thread": False}
     if "sqlite" in settings.DATABASE_URL
     else {},
+    echo=settings.DEBUG,  # Log SQL statements in debug mode
 )
 
-# Create session factory
+# Session factory - creates new database sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create base class for models
+# Base class for all ORM models
 Base = declarative_base()
 
 
-def get_db() -> Generator:
+def get_db() -> Iterator[Session]:
     """
-    Database dependency to be used in FastAPI routes.
-    Yields a database session and closes it after use.
+    FastAPI dependency that provides a database session.
+
+    Usage in routes:
+        @router.get("/items")
+        def get_items(db: Session = Depends(get_db)):
+            return db.query(Item).all()
+
+    The session is automatically closed after the request completes.
     """
     db = SessionLocal()
     try:
@@ -37,36 +46,68 @@ def get_db() -> Generator:
         db.close()
 
 
-def init_db():
+def init_db() -> None:
     """
-    Initialize database tables.
-    Called on application startup.
-    """
-    # Import all models here to ensure they're registered with Base
-    # These imports are used by SQLAlchemy to register models with Base.metadata
-    from app.models import (
-        EmailVerification,
-        EmailWhitelist,
-        PasswordReset,
-        SystemSettings,
-        User,
-    )
-    from app.models.llm_config import (
-        LLMConfiguration,
-        TokenUsageLog,
-    )
+    Initialize database by creating all tables defined in models.
 
-    # Use the imports to satisfy type checker
+    This should be called on application startup or via a setup script.
+    Import all models before calling this to ensure they're registered.
+    """
+    # Import all models to register them with Base.metadata
+    # These imports have side effects (registering tables), so we use them here
+    from app.models.content import Content
+    from app.models.email_verification import EmailVerification
+    from app.models.email_whitelist import EmailWhitelist
+    from app.models.login_attempt import LoginAttempt
+    from app.models.password_reset import PasswordReset
+    from app.models.security_log import SecurityLog
+    from app.models.unit import Unit
+    from app.models.user import User
+
+    # Reference all models to satisfy linters (imports have side effects)
     _ = (
+        Content,
         EmailVerification,
         EmailWhitelist,
+        LoginAttempt,
         PasswordReset,
-        SystemSettings,
+        SecurityLog,
+        Unit,
         User,
-        LLMConfiguration,
-        TokenUsageLog,
     )
 
-    # Create all tables
     Base.metadata.create_all(bind=engine)
-    print("✅ Database initialized")
+    print(f"Database initialized: {settings.DATABASE_URL}")
+
+
+def reset_db() -> None:
+    """
+    Drop and recreate all tables. USE WITH CAUTION.
+
+    This is useful for development and testing only.
+    """
+    # Import all models to register them with Base.metadata
+    from app.models.content import Content
+    from app.models.email_verification import EmailVerification
+    from app.models.email_whitelist import EmailWhitelist
+    from app.models.login_attempt import LoginAttempt
+    from app.models.password_reset import PasswordReset
+    from app.models.security_log import SecurityLog
+    from app.models.unit import Unit
+    from app.models.user import User
+
+    # Reference all models to satisfy linters
+    _ = (
+        Content,
+        EmailVerification,
+        EmailWhitelist,
+        LoginAttempt,
+        PasswordReset,
+        SecurityLog,
+        Unit,
+        User,
+    )
+
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    print("Database reset complete")

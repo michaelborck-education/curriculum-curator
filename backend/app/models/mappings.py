@@ -31,6 +31,7 @@ material_ulo_mappings = Table(
         primary_key=True,
     ),
     Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
+    extend_existing=True,
 )
 
 # Assessment to Unit Learning Outcome mapping
@@ -50,26 +51,11 @@ assessment_ulo_mappings = Table(
         primary_key=True,
     ),
     Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
+    extend_existing=True,
 )
 
-# Weekly Learning Outcome to Unit Learning Outcome mapping
-wlo_ulo_mappings = Table(
-    "wlo_ulo_mappings",
-    Base.metadata,
-    Column(
-        "wlo_id",
-        GUID(),
-        ForeignKey("weekly_learning_outcomes.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column(
-        "ulo_id",
-        GUID(),
-        ForeignKey("unit_learning_outcomes.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
-)
+# NOTE: wlo_ulo_mappings removed - referenced non-existent weekly_learning_outcomes table
+# If weekly learning outcomes are needed in future, create the model first
 
 # Assessment to Material links
 assessment_material_links = Table(
@@ -88,4 +74,5 @@ assessment_material_links = Table(
         primary_key=True,
     ),
     Column("created_at", DateTime, nullable=False, default=datetime.utcnow),
+    extend_existing=True,
 )

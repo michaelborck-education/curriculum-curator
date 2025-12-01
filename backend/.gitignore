@@ -117,3 +117,6 @@ celerybeat.pid
 # Pytest
 .pytest_cache/technical_debt.json
 content_repo/
+
+# Git-backed content storage (user workspaces)
+content_repos/

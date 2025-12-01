@@ -8,17 +8,36 @@ An Architecture Decision Record captures an important architectural decision mad
 
 ## ADR Index
 
+### Guiding Principles
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [0018](0018-workflow-flexibility-philosophy.md) | **Workflow Flexibility Philosophy** | **Accepted** |
+
+> *"Assist any workflow, don't enforce"* - This principle informs all other architectural decisions.
+
+### Current Stack (Active Decisions)
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [0016](0016-react-typescript-frontend.md) | React + TypeScript Frontend | **Accepted** |
+| [0017](0017-fastapi-rest-backend.md) | FastAPI REST Backend with JWT Auth | **Accepted** |
+| [0019](0019-database-abstraction-sqlalchemy.md) | Database Abstraction with SQLAlchemy | **Accepted** |
+| [0015](0015-content-format-and-export-strategy.md) | Content Format and Export Strategy | Proposed |
+| [0014](0014-litellm-unified-llm-abstraction.md) | LiteLLM for Unified LLM Abstraction | Accepted |
+| [0013](0013-git-backed-content-storage.md) | Git-Backed Content Storage | Proposed (Phase 2) |
+
 ### Foundation
 - [ADR-0001: Record Architecture Decisions](0001-record-architecture-decisions.md) - Why we use ADRs
-- [ADR-0002: FastHTML Web Framework](0002-fasthtml-web-framework.md) - Choice of web framework
 
 ### Architecture
 - [ADR-0003: Plugin Architecture](0003-plugin-architecture.md) - Extensibility approach
 - [ADR-0005: Hybrid Storage Approach](0005-hybrid-storage-approach.md) - Data persistence strategy
+- [ADR-0019: Database Abstraction](0019-database-abstraction-sqlalchemy.md) - SQLAlchemy ORM for portability
 
 ### User Experience
 - [ADR-0004: Teaching Philosophy System](0004-teaching-philosophy-system.md) - Personalization framework
-- [ADR-0006: Pure FastHTML Without JavaScript](0006-pure-fasthtml-no-javascript.md) - No client-side JS
+- [ADR-0018: Workflow Flexibility](0018-workflow-flexibility-philosophy.md) - Assist, don't enforce
 
 ### Authentication & Security
 - [ADR-0007: Simple Authentication for Internal Network](0007-simple-authentication-internal-network.md) - Basic auth approach
@@ -27,10 +46,17 @@ An Architecture Decision Record captures an important architectural decision mad
 - [ADR-0010: Security Hardening](0010-security-hardening.md) - Comprehensive security measures
 - [ADR-0011: Deployment Best Practices](0011-deployment-best-practices.md) - Production deployment guidelines
 
-### Infrastructure & Integration
-- [ADR-0012: Framework Migration FastHTML to NiceGUI](0012-framework-migration-fasthtml-to-nicegui.md) - Frontend framework change
-- [ADR-0013: Git-Backed Content Storage](0013-git-backed-content-storage.md) - Version-controlled content
-- [ADR-0014: LiteLLM for Unified LLM Abstraction](0014-litellm-unified-llm-abstraction.md) - Unified LLM provider interface
+### Superseded Decisions (Historical)
+
+These ADRs document previous architectural directions that have since been replaced:
+
+| ADR | Title | Superseded By |
+|-----|-------|---------------|
+| [0002](0002-fasthtml-web-framework.md) | FastHTML Web Framework | ADR-0016 |
+| [0006](0006-pure-fasthtml-no-javascript.md) | Pure FastHTML Without JavaScript | ADR-0016 |
+| [0012](0012-framework-migration-fasthtml-to-nicegui.md) | Framework Migration to NiceGUI | ADR-0016 |
+
+**Evolution Summary**: The project started with FastHTML (server-rendered Python), planned a migration to NiceGUI (never implemented), and ultimately adopted React + TypeScript frontend with FastAPI backend for the production stack.
 
 ## ADR Status
 

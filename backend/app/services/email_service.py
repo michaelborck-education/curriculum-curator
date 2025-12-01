@@ -7,6 +7,7 @@ import smtplib
 import string
 import traceback
 from pathlib import Path
+from typing import Protocol
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from jinja2 import Template
@@ -18,7 +19,13 @@ from app.core.smtp_config import (
     PersonalSMTPHelper,
     SMTPConfig,
 )
-from app.models import User
+
+
+class UserLike(Protocol):
+    """Protocol for objects that have email and name attributes"""
+
+    email: str
+    name: str
 
 
 class EmailService:
@@ -267,7 +274,7 @@ class EmailService:
         return f"Setup instructions for {self.smtp_config.provider.value} provider"
 
     async def send_verification_email(
-        self, user: User, verification_code: str, expires_minutes: int = 15
+        self, user: UserLike, verification_code: str, expires_minutes: int = 15
     ) -> bool:
         """Send email verification code to user"""
         # Development mode - log instead of sending
@@ -359,8 +366,22 @@ The {settings.APP_NAME} Team
 
             return False
 
+    async def send_verification_email_by_address(
+        self, email: str, name: str, verification_code: str, expires_minutes: int = 15
+    ) -> bool:
+        """Send email verification code to an email address (without User object)"""
+
+        class SimpleUser:
+            def __init__(self, email: str, name: str):
+                self.email = email
+                self.name = name
+
+        return await self.send_verification_email(
+            SimpleUser(email, name), verification_code, expires_minutes
+        )
+
     async def send_password_reset_email(
-        self, user: User, reset_code: str, expires_minutes: int = 30
+        self, user: UserLike, reset_code: str, expires_minutes: int = 30
     ) -> bool:
         """Send password reset code to user"""
         # Development mode - log instead of sending
@@ -434,7 +455,7 @@ The {settings.APP_NAME} Security Team
             print(f"❌ Failed to send password reset email to {user.email}: {e}")
             return False
 
-    async def send_welcome_email(self, user: User) -> bool:
+    async def send_welcome_email(self, user: UserLike) -> bool:
         """Send welcome email after successful verification"""
         # Development mode - log instead of sending
         if (

@@ -26,8 +26,8 @@ from .auth import (
     ResetPasswordResponse,
     UserRegistrationRequest,
     UserRegistrationResponse,
-    UserResponse,
 )
+from .user import UserResponse
 
 __all__ = [
     # Admin schemas

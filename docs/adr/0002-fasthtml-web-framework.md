@@ -4,7 +4,9 @@ Date: 2025-08-01
 
 ## Status
 
-Accepted
+Superseded by [ADR-0016: React + TypeScript Frontend](0016-react-typescript-frontend.md)
+
+**Historical Note**: This decision was later superseded by ADR-0012 (NiceGUI migration, never implemented), then by ADR-0016 (React + TypeScript, current production stack). Preserved for historical context.
 
 ## Context
 

@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.assessment import Assessment, AssessmentType
-from app.models.learning_outcomes import AssessmentLearningOutcome
+from app.models.learning_outcome import AssessmentLearningOutcome
 from app.models.mappings import assessment_material_links, assessment_ulo_mappings
 from app.schemas.assessments import (
     AssessmentCreate,

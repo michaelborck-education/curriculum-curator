@@ -148,19 +148,8 @@ class ResetPasswordResponse(CamelModel):
     message: str
 
 
-class UserResponse(CamelModel):
-    """Response schema for user information"""
-
-    id: str
-    email: str
-    name: str
-    role: str
-    is_verified: bool
-    is_active: bool
-    created_at: str
-
-    class Config:
-        from_attributes = True
+# UserResponse imported from user.py to avoid duplication
+from app.schemas.user import UserResponse  # noqa: E402
 
 
 class LoginRequest(CamelModel):

@@ -5,7 +5,7 @@ Learning outcome models for structured curriculum alignment
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
+    from app.models.assessment import Assessment
     from app.models.content import Content
     from app.models.unit import Unit
     from app.models.unit_outline import UnitOutline
@@ -277,7 +278,9 @@ class AssessmentLearningOutcome(Base):
     )
 
     # Relationships
-    assessment: Mapped["Any"] = relationship(back_populates="assessment_outcomes")
+    assessment: Mapped["Assessment"] = relationship(
+        back_populates="assessment_outcomes"
+    )
 
     def __repr__(self) -> str:
         desc_preview = str(self.description)[:50] if self.description else ""

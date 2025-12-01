@@ -76,6 +76,23 @@ export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
 export interface Content {
   id: string;
   title: string;
+  contentType: string;
+  status: string;
+  unitId: string;
+  orderIndex: number;
+  body: string; // Markdown content
+  summary?: string;
+  weekNumber?: number;
+  estimatedDurationMinutes?: number;
+  currentCommit?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Alias for backwards compatibility
+export interface ContentLegacy {
+  id: string;
+  title: string;
   type: string;
   status: string;
   unitId: string;

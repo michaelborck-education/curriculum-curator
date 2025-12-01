@@ -1,9 +1,11 @@
 # ADR-0012: Framework Migration from FastHTML to NiceGUI
 
 **Date**: 2025-08-03  
-**Status**: Accepted  
+**Status**: Superseded by [ADR-0016: React + TypeScript Frontend](0016-react-typescript-frontend.md)  
 **Deciders**: Development Team  
 **Technical Story**: Framework selection for improved development velocity and user experience
+
+**Historical Note**: The NiceGUI migration was proposed but never implemented. Before significant development began, the decision was made to adopt React + TypeScript instead, as documented in ADR-0016.
 
 ## Context
 

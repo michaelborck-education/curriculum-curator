@@ -27,14 +27,14 @@ const ContentView = () => {
 
   useEffect(() => {
     const fetchContent = async () => {
-      if (!contentId) {
+      if (!contentId || !unitId) {
         setLoading(false);
-        setError('No content ID provided');
+        setError('No content ID or unit ID provided');
         return;
       }
 
       try {
-        const response = await getContent(contentId);
+        const response = await getContent(unitId, contentId);
         setContent(response.data);
       } catch (err: unknown) {
         console.error('Failed to fetch content:', err);
@@ -45,14 +45,14 @@ const ContentView = () => {
     };
 
     fetchContent();
-  }, [contentId]);
+  }, [contentId, unitId]);
 
   const handleDelete = async () => {
-    if (!contentId) return;
+    if (!contentId || !unitId) return;
 
     setIsDeleting(true);
     try {
-      await deleteContent(contentId);
+      await deleteContent(unitId, contentId);
       toast.success('Content deleted successfully');
       navigate(`/units/${unitId}`);
     } catch (err: unknown) {
@@ -148,7 +148,7 @@ const ContentView = () => {
             <div className='flex items-center gap-4 text-sm text-gray-500'>
               <span className='flex items-center gap-1'>
                 <FileText size={16} />
-                {getContentTypeLabel(content.type)}
+                {getContentTypeLabel(content.contentType)}
               </span>
               {content.estimatedDurationMinutes && (
                 <span className='flex items-center gap-1'>
@@ -193,7 +193,7 @@ const ContentView = () => {
       <div className='bg-white rounded-lg shadow-md p-6'>
         <div
           className='prose prose-purple max-w-none'
-          dangerouslySetInnerHTML={{ __html: content.contentMarkdown }}
+          dangerouslySetInnerHTML={{ __html: content.body }}
         />
       </div>
 
@@ -207,14 +207,14 @@ const ContentView = () => {
           </div>
           <div>
             <span className='text-gray-500'>Last Updated</span>
-            <p className='font-medium'>{formatDate(content.updatedAt)}</p>
+            <p className='font-medium'>
+              {content.updatedAt ? formatDate(content.updatedAt) : 'N/A'}
+            </p>
           </div>
-          {content.difficultyLevel && (
+          {content.weekNumber && (
             <div>
-              <span className='text-gray-500'>Difficulty</span>
-              <p className='font-medium capitalize'>
-                {content.difficultyLevel}
-              </p>
+              <span className='text-gray-500'>Week</span>
+              <p className='font-medium'>Week {content.weekNumber}</p>
             </div>
           )}
           <div>

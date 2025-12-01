@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 # CSRF removed - using JWT + CORS instead
-from app.core.database import SessionLocal, init_db
+from app.core.database import init_db
 from app.core.password_validator import PasswordValidator
 from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
 from app.core.security_middleware import (
@@ -25,8 +25,6 @@ from app.core.security_middleware import (
     SecurityHeadersMiddleware,
     TrustedProxyMiddleware,
 )
-from app.core.security_utils import SecurityManager
-from app.core.startup_checks import run_startup_checks
 from app.services.git_content_service import get_git_service
 
 logging.basicConfig(level=logging.INFO)
@@ -41,26 +39,13 @@ async def lifespan(app: FastAPI):
         init_db()
         logger.info("✅ Database initialized")
 
-        # Run startup checks and cleanup
-        db = SessionLocal()
-        try:
-            run_startup_checks(db)
-        finally:
-            db.close()
+        # Run startup checks and cleanup (skipped for now - migrating to raw SQLite)
+        # TODO: Migrate startup_checks and config_service to raw SQLite
+        logger.info("⚠️ Startup checks skipped (pending raw SQLite migration)")
 
-        # Initialize Git repository for content
+        # Initialize Git content service (per-unit repos)
         git_service = get_git_service()
-        logger.info(f"✅ Git repository initialized at {git_service.repo_path}")
-
-        # Initialize configuration service
-        from app.services.config_service import ConfigService  # noqa: PLC0415
-
-        db = SessionLocal()
-        try:
-            ConfigService.initialize(db)
-            logger.info("✅ Configuration service initialized")
-        finally:
-            db.close()
+        logger.info(f"✅ Git content service initialized at {git_service.repos_base}")
 
     except Exception as e:
         logger.warning(f"Initialization warning: {e}")
@@ -253,7 +238,10 @@ except ImportError as e:
 try:
     from app.api.routes import content
 
-    app.include_router(content.router, prefix="/api/content", tags=["content"])
+    # Content routes are nested under units: /api/units/{unit_id}/content
+    app.include_router(
+        content.router, prefix="/api/units/{unit_id}/content", tags=["content"]
+    )
 except ImportError as e:
     logger.warning(f"Failed to load content routes: {e}")
 
@@ -264,12 +252,7 @@ try:
 except ImportError as e:
     logger.warning(f"Failed to load content_export routes: {e}")
 
-try:
-    from app.api.routes import content_versions
-
-    app.include_router(content_versions.router, prefix="/api", tags=["versions"])
-except ImportError as e:
-    logger.warning(f"Failed to load content_versions routes: {e}")
+# content_versions removed - version control now via Git in content routes
 
 try:
     from app.api.routes import import_content
@@ -328,12 +311,16 @@ async def health_check():
 @app.get("/security/stats")
 async def security_stats():
     """Get basic security statistics (admin only in production)"""
-
-    db = SessionLocal()
-    try:
-        return SecurityManager.get_security_stats(db, hours=24)
-    finally:
-        db.close()
+    # TODO: Migrate to raw SQLite security_repo
+    return {
+        "period_hours": 24,
+        "total_login_attempts": 0,
+        "failed_attempts": 0,
+        "success_rate": 100.0,
+        "currently_locked_accounts": 0,
+        "unique_ip_addresses": 0,
+        "note": "Security stats temporarily unavailable during SQLite migration",
+    }
 
 
 @app.post("/password-strength")

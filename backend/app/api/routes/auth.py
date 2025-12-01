@@ -1,9 +1,11 @@
 """
-Authentication routes with complete user registration and verification system
+Authentication routes with complete user registration and verification system.
+
+Uses SQLAlchemy ORM via repositories.
 """
 
-import uuid
 from datetime import timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -13,9 +15,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.password_validator import PasswordValidator
 from app.core.rate_limiter import RateLimits, limiter
-from app.core.security_utils import SecurityManager
-from app.models import EmailWhitelist, User, UserRole
-from app.models.security_log import SecurityEventType
+from app.repositories import security_repo, user_repo
 from app.schemas import (
     EmailVerificationRequest,
     EmailVerificationResponse,
@@ -31,11 +31,26 @@ from app.schemas import (
     UserRegistrationResponse,
     UserResponse,
 )
+from app.schemas.user import UserCreate
 from app.services.email_service import email_service
-from app.services.security_logger import SecurityLogger
-from app.utils.auth_helpers import auth_helpers
 
 router = APIRouter()
+
+
+def _get_client_ip(request: Request) -> str:
+    """Get client IP address from request, handling proxies"""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _get_user_agent(request: Request) -> str:
+    """Get user agent from request"""
+    return request.headers.get("User-Agent", "Unknown")[:500]
 
 
 @router.post("/register", response_model=UserRegistrationResponse)
@@ -43,14 +58,13 @@ router = APIRouter()
 async def register(
     request: Request,
     user_request: UserRegistrationRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Register a new user with email verification"""
-
-    # No CSRF needed - protected by CORS + rate limiting
+    email = user_request.email.lower().strip()
 
     # Check if email is whitelisted
-    if not EmailWhitelist.is_email_whitelisted(db, user_request.email):
+    if not user_repo.is_email_whitelisted(db, email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email address is not authorized for registration. Please contact your administrator.",
@@ -58,18 +72,16 @@ async def register(
 
     # Enhanced password validation
     is_valid, password_errors = PasswordValidator.validate_password(
-        user_request.password, user_request.name, user_request.email
+        user_request.password, user_request.name, email
     )
 
     if not is_valid:
-        # Calculate password strength for user feedback
         strength_score, strength_desc = PasswordValidator.get_password_strength_score(
             user_request.password
         )
         suggestions = PasswordValidator.suggest_improvements(
             user_request.password, password_errors
         )
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -83,9 +95,7 @@ async def register(
         )
 
     # Check if user already exists
-    existing_user = (
-        db.query(User).filter(User.email == user_request.email.lower()).first()
-    )
+    existing_user = user_repo.get_user_by_email(db, email)
     if existing_user:
         if existing_user.is_verified:
             raise HTTPException(
@@ -93,10 +103,11 @@ async def register(
                 detail="An account with this email already exists",
             )
         # User exists but not verified - resend verification
-        success, _verification_code = await auth_helpers.create_and_send_verification(
-            db, existing_user
+        verification_code = user_repo.create_verification_code(db, existing_user.id)
+        email_sent = await email_service.send_verification_email(
+            existing_user, verification_code, expires_minutes=60
         )
-        if success:
+        if email_sent:
             return UserRegistrationResponse(
                 message="Verification email sent. Please check your inbox for the 6-digit code.",
                 user_email=existing_user.email,
@@ -108,81 +119,84 @@ async def register(
 
     try:
         # Check if this is the first user (becomes admin)
-        user_count = db.query(User).count()
+        user_count = user_repo.count_users(db)
         is_first_user = user_count == 0
 
-        # Determine role - first user becomes admin
-        user_role = UserRole.ADMIN.value if is_first_user else UserRole.LECTURER.value
-
         # Create new user
-        new_user = User(
-            id=uuid.uuid4(),
-            email=user_request.email.lower().strip(),
-            password_hash=security.get_password_hash(user_request.password),
+        user_data = UserCreate(
+            email=email,
+            password=user_request.password,
             name=user_request.name.strip(),
-            role=user_role,
-            is_verified=False,
-            is_active=True,
         )
+        new_user = user_repo.create_user(db, user_data)
 
-        # If first user, auto-verify them (admin doesn't need email verification)
+        # Update role if first user
         if is_first_user:
-            new_user.is_verified = True
+            user_repo.update_user(db, new_user.id, role="admin", is_verified=True)
 
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-
-        # Send verification email (skip for first user/admin)
-        if is_first_user:
-            # First user is auto-verified and becomes admin
-            SecurityLogger.log_authentication_event(
-                db=db,
-                event_type=SecurityEventType.LOGIN_SUCCESS,
-                request=request,
-                user=new_user,
-                success=True,
-                description=f"First user registered as admin: {new_user.email}",
+            # Log security event
+            security_repo.log_security_event(
+                db,
+                event_type="login_success",
+                ip_address=_get_client_ip(request),
+                user_id=new_user.id,
+                user_email=email,
+                user_role="admin",
+                user_agent=_get_user_agent(request),
+                request_path=str(request.url.path),
+                request_method=request.method,
+                description=f"First user registered as admin: {email}",
+                severity="info",
+                success="success",
             )
-
             return UserRegistrationResponse(
                 message="Registration successful! You are the first user and have been granted admin privileges. You can now log in.",
-                user_email=new_user.email,
+                user_email=email,
             )
-        # All users (except first admin) must verify their email
-        success, _verification_code = await auth_helpers.create_and_send_verification(
-            db, new_user
+
+        # Send verification email
+        verification_code = user_repo.create_verification_code(db, new_user.id)
+        email_sent = await email_service.send_verification_email_by_address(
+            email=email,
+            name=user_request.name.strip(),
+            verification_code=verification_code,
+            expires_minutes=60,
         )
 
-        if success:
-            # Log successful registration
-            SecurityLogger.log_authentication_event(
-                db=db,
-                event_type=SecurityEventType.LOGIN_SUCCESS,
-                request=request,
-                user=new_user,
-                success=True,
-                description=f"User registration successful for {new_user.email}",
+        if email_sent:
+            security_repo.log_security_event(
+                db,
+                event_type="registration_success",
+                ip_address=_get_client_ip(request),
+                user_id=new_user.id,
+                user_email=email,
+                user_role="lecturer",
+                user_agent=_get_user_agent(request),
+                request_path=str(request.url.path),
+                request_method=request.method,
+                description=f"User registration successful for {email}",
+                severity="info",
+                success="success",
             )
-
             return UserRegistrationResponse(
                 message="Registration successful! Please check your email for the verification code.",
-                user_email=new_user.email,
+                user_email=email,
             )
-        # Registration failed - remove user
-        db.delete(new_user)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed. Could not send verification email.",
+
+        # Email failed - we should still allow the user to exist
+        # They can request resend
+        return UserRegistrationResponse(
+            message="Registration successful but email delivery failed. Please use 'Resend Verification' to get your code.",
+            user_email=email,
         )
 
+    except HTTPException:
+        raise
     except Exception:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed. Please try again.",
-        )
+        ) from None
 
 
 @router.post("/verify-email", response_model=EmailVerificationResponse)
@@ -190,44 +204,52 @@ async def register(
 async def verify_email(
     request: Request,
     verification_request: EmailVerificationRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Verify email with 6-digit code"""
+    email = verification_request.email.lower().strip()
 
-    success, user, error_message = auth_helpers.verify_email_code(
-        db, verification_request.email, verification_request.code
-    )
-
-    if not success:
+    # Find user by email
+    user = user_repo.get_user_by_email(db, email)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_message or "Email verification failed",
+            detail="User not found",
         )
 
-    # Type narrowing: if success is True, user must exist
-    assert user is not None
+    # Verify the code
+    if not user_repo.verify_email_code(db, user.id, verification_request.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code",
+        )
+
+    # Mark user as verified
+    user_repo.verify_user(db, user.id)
 
     # Send welcome email
-    await email_service.send_welcome_email(user)
+    user_data = user_repo.get_user_by_id(db, user.id)
+    if user_data:
+        await email_service.send_welcome_email(user_data)
 
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": str(user.id), "email": user.email},
+        data={"sub": user.id, "email": user.email},
         expires_delta=access_token_expires,
     )
 
+    # Refresh user data after verification
+    verified_user = user_repo.get_user_by_id(db, user.id)
+    if not verified_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve verified user",
+        )
+
     return EmailVerificationResponse(
         access_token=access_token,
-        user=UserResponse(
-            id=str(user.id),
-            email=user.email,
-            name=user.name,
-            role=user.role,
-            is_verified=user.is_verified,
-            is_active=user.is_active,
-            created_at=user.created_at.isoformat(),
-        ),
+        user=verified_user,
     )
 
 
@@ -236,11 +258,12 @@ async def verify_email(
 async def resend_verification(
     request: Request,
     resend_request: ResendVerificationRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Resend verification email"""
+    email = resend_request.email.lower().strip()
+    user = user_repo.get_user_by_email(db, email)
 
-    user = db.query(User).filter(User.email == resend_request.email.lower()).first()
     if not user:
         # Don't reveal if user exists or not for security
         return ResendVerificationResponse(
@@ -253,8 +276,9 @@ async def resend_verification(
             detail="This account is already verified",
         )
 
-    _success, _verification_code = await auth_helpers.create_and_send_verification(
-        db, user
+    verification_code = user_repo.create_verification_code(db, user.id)
+    await email_service.send_verification_email(
+        user, verification_code, expires_minutes=60
     )
 
     return ResendVerificationResponse(
@@ -267,25 +291,20 @@ async def resend_verification(
 async def login(
     request: Request,
     login_data: LoginRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Simple JSON-based login endpoint"""
-
-    # NO CSRF on login endpoint - protected by CORS + rate limiting
-    # Using simple JSON instead of OAuth2PasswordRequestForm for simplicity
-
-    # Get client information for security tracking
-    client_ip = SecurityManager.get_client_ip(request)
-    user_agent = SecurityManager.get_user_agent(request)
+    client_ip = _get_client_ip(request)
+    user_agent = _get_user_agent(request)
     email = login_data.email.lower().strip()
 
-    # Check for account lockout or IP rate limiting
-    is_locked, lockout_reason, minutes_remaining = (
-        SecurityManager.check_account_lockout(db, email, client_ip)
+    # Check for account lockout
+    is_locked, lockout_reason, minutes_remaining = security_repo.check_account_lockout(
+        db, email, client_ip
     )
 
     if is_locked:
-        lockout_message = SecurityManager.get_lockout_status_message(
+        lockout_message = security_repo.get_lockout_message(
             is_locked, lockout_reason, minutes_remaining
         )
         raise HTTPException(
@@ -294,47 +313,40 @@ async def login(
             headers={"Retry-After": str((minutes_remaining or 15) * 60)},
         )
 
-    # Check for suspicious activity
-    _is_suspicious, _suspicion_reason = SecurityManager.is_suspicious_activity(
-        db, email, client_ip, user_agent
-    )
-
-    user = db.query(User).filter(User.email == email).first()
+    user = user_repo.get_user_by_email(db, email)
     login_success = user and security.verify_password(
         login_data.password, user.password_hash
     )
 
-    # Record login attempt (success or failure)
-    SecurityManager.record_login_attempt(
-        db=db,
-        email=email,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        success=bool(login_success),
-        user=user,
-        failure_reason="Invalid credentials" if not login_success else None,
-    )
-
-    if not login_success:
-        # Log failed login attempt
-        SecurityLogger.log_authentication_event(
-            db=db,
-            event_type=SecurityEventType.LOGIN_FAILED,
-            request=request,
-            user=user,
-            success=False,
-            description=f"Login failed for {email}",
-            details={"reason": "Invalid credentials", "email": email},
+    if login_success:
+        security_repo.record_login_success(db, email, client_ip, user_agent)
+    else:
+        security_repo.record_login_failure(
+            db, email, client_ip, user_agent, "Invalid credentials"
         )
 
-        # Use generic message to prevent user enumeration
+    if not login_success:
+        security_repo.log_security_event(
+            db,
+            event_type="login_failed",
+            ip_address=client_ip,
+            user_id=user.id if user else None,
+            user_email=email,
+            user_agent=user_agent,
+            request_path=str(request.url.path),
+            request_method=request.method,
+            description=f"Login failed for {email}",
+            severity="warning",
+            success="failure",
+            details={"reason": "Invalid credentials", "email": email},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Type narrowing: if login_success is True, user must exist
+    # User exists at this point
     assert user is not None
 
     if not user.is_active:
@@ -343,7 +355,6 @@ async def login(
         )
 
     if not user.is_verified:
-        # Return a special status that frontend can handle to redirect to verification
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -354,38 +365,44 @@ async def login(
             },
         )
 
-    # Create access token with enhanced security
+    # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": str(user.id), "email": user.email},
+        data={"sub": user.id, "email": user.email},
         expires_delta=access_token_expires,
         client_ip=client_ip,
         user_role=user.role,
-        session_id=None,  # Could be generated if needed
+        session_id=None,
     )
 
     # Log successful login
-    SecurityLogger.log_authentication_event(
-        db=db,
-        event_type=SecurityEventType.LOGIN_SUCCESS,
-        request=request,
-        user=user,
-        success=True,
+    security_repo.log_security_event(
+        db,
+        event_type="login_success",
+        ip_address=client_ip,
+        user_id=user.id,
+        user_email=user.email,
+        user_role=user.role,
+        user_agent=user_agent,
+        request_path=str(request.url.path),
+        request_method=request.method,
         description=f"Login successful for {user.email}",
+        severity="info",
+        success="success",
         details={"user_role": user.role},
     )
 
+    # Get public user response (without password_hash)
+    public_user = user_repo.get_user_by_id(db, user.id)
+    if not public_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user data",
+        )
+
     return LoginResponse(
         access_token=access_token,
-        user=UserResponse(
-            id=str(user.id),
-            email=user.email,
-            name=user.name,
-            role=user.role,
-            is_verified=user.is_verified,
-            is_active=user.is_active,
-            created_at=user.created_at.isoformat(),
-        ),
+        user=public_user,
     )
 
 
@@ -394,22 +411,17 @@ async def login(
 async def forgot_password(
     request: Request,
     forgot_request: ForgotPasswordRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Send password reset code to email"""
-
-    user = db.query(User).filter(User.email == forgot_request.email.lower()).first()
+    email = forgot_request.email.lower().strip()
+    user = user_repo.get_user_by_email(db, email)
 
     if user and user.is_verified and user.is_active:
-        success, _reset_code = await auth_helpers.create_and_send_password_reset(
-            db, user
+        reset_code = user_repo.create_password_reset_code(db, user.id)
+        await email_service.send_password_reset_email(
+            user, reset_code, expires_minutes=30
         )
-
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send password reset email. Please try again.",
-            )
 
     # Always return success message to prevent email enumeration
     return ForgotPasswordResponse(
@@ -422,53 +434,47 @@ async def forgot_password(
 async def reset_password(
     request: Request,
     reset_request: ResetPasswordRequest,
-    db: Session = Depends(deps.get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
 ):
     """Reset password with verification code"""
+    email = reset_request.email.lower().strip()
 
-    success, user, error_message = auth_helpers.verify_reset_code(
-        db, reset_request.email, reset_request.code
-    )
-
-    if not success:
+    # Find user by email
+    user = user_repo.get_user_by_email(db, email)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_message or "Invalid or expired reset code",
+            detail="Invalid or expired reset code",
         )
 
-    # Type narrowing: if success is True, user must exist
-    assert user is not None
+    # Verify the reset code
+    if not user_repo.verify_password_reset_code(db, user.id, reset_request.code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset code",
+        )
 
     try:
         # Update password
-        user.password_hash = security.get_password_hash(reset_request.new_password)
+        user_repo.update_password(db, user.id, reset_request.new_password)
 
         # Mark reset code as used
-        auth_helpers.mark_reset_code_used(db, reset_request.email, reset_request.code)
-
-        db.commit()
+        user_repo.mark_password_reset_used(db, user.id, reset_request.code)
 
         return ResetPasswordResponse(
             message="Password reset successfully. You can now log in with your new password."
         )
 
     except Exception:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reset password. Please try again.",
-        )
+        ) from None
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_user_profile(current_user: User = Depends(deps.get_current_active_user)):
+async def get_user_profile(
+    current_user: UserResponse = Depends(deps.get_current_active_user),
+):
     """Get current user information"""
-    return UserResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        name=current_user.name,
-        role=current_user.role,
-        is_verified=current_user.is_verified,
-        is_active=current_user.is_active,
-        created_at=current_user.created_at.isoformat(),
-    )
+    return current_user

@@ -81,38 +81,47 @@ export const updateUnit = (
 export const deleteUnit = (id: string): Promise<ApiResponse> =>
   api.delete(`/units/${id}`);
 
-// Content management
-export const getContents = (unitId?: string): Promise<ApiResponse> => {
-  const params = unitId ? `?unit_id=${unitId}` : '';
-  return api.get(`/content${params}`);
-};
+// Content management - routes are nested under /units/{unitId}/content
+export const getUnitContents = (unitId: string): Promise<ApiResponse> =>
+  api.get(`/units/${unitId}/content`);
 
-export const getContent = (contentId: string): Promise<ApiResponse> =>
-  api.get(`/content/${contentId}`);
+export const getContent = (
+  unitId: string,
+  contentId: string
+): Promise<ApiResponse> => api.get(`/units/${unitId}/content/${contentId}`);
 
-export const createContent = (data: {
-  title: string;
-  type: string;
-  unit_id: string;
-  content_markdown?: string;
-  summary?: string;
-  difficulty_level?: string;
-  estimated_duration_minutes?: number;
-}): Promise<ApiResponse> => api.post('/content', data);
+export const createContent = (
+  unitId: string,
+  data: {
+    title: string;
+    contentType: string;
+    body?: string;
+    summary?: string;
+    weekNumber?: number;
+    estimatedDurationMinutes?: number;
+  }
+): Promise<ApiResponse> => api.post(`/units/${unitId}/content`, data);
 
 export const updateContent = (
+  unitId: string,
   contentId: string,
   data: {
     title?: string;
-    content_markdown?: string;
+    body?: string;
     summary?: string;
-    difficulty_level?: string;
-    estimated_duration_minutes?: number;
+    weekNumber?: number;
+    estimatedDurationMinutes?: number;
   }
-): Promise<ApiResponse> => api.put(`/content/${contentId}`, data);
+): Promise<ApiResponse> =>
+  api.put(`/units/${unitId}/content/${contentId}`, data);
 
-export const deleteContent = (contentId: string): Promise<ApiResponse> =>
-  api.delete(`/content/${contentId}`);
+export const deleteContent = (
+  unitId: string,
+  contentId: string
+): Promise<ApiResponse> => api.delete(`/units/${unitId}/content/${contentId}`);
+
+// Legacy alias for backwards compatibility (deprecated)
+export const getContents = getUnitContents;
 
 // File upload
 export const uploadFile = (file: File): Promise<ApiResponse> => {

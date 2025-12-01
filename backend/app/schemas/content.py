@@ -1,81 +1,160 @@
 """
-Content schemas for API requests and responses
+Content schemas for unit materials (lectures, worksheets, etc.)
+
+Content body (markdown) is stored in Git, not the database.
+These schemas handle metadata and API request/response formats.
 """
 
-from typing import Any
+from datetime import datetime
+from enum import Enum
 
 from pydantic import Field
 
 from app.schemas.base import CamelModel
 
 
-class ContentBase(CamelModel):
-    """Base content schema with common fields"""
+class ContentType(str, Enum):
+    """Content type enumeration"""
 
-    title: str = Field(..., min_length=1, max_length=500)
-    type: str = Field(...)  # ContentType enum value
-    content_markdown: str | None = None
-    summary: str | None = None
-    estimated_duration_minutes: int | None = Field(None, ge=0, le=600)
-    difficulty_level: str | None = None
-    learning_objectives: list[str] | None = None
+    LECTURE = "lecture"
+    WORKSHEET = "worksheet"
+    QUIZ = "quiz"
+    CASE_STUDY = "case_study"
+    READING = "reading"
+    ASSIGNMENT = "assignment"
+    PROJECT = "project"
+    ASSESSMENT = "assessment"
+    NOTES = "notes"
+    VIDEO = "video"
+    ACTIVITY = "activity"
 
 
-class ContentCreate(ContentBase):
+class ContentStatus(str, Enum):
+    """Content status"""
+
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+# =============================================================================
+# API Request/Response Schemas
+# =============================================================================
+
+
+class ContentCreate(CamelModel):
     """Schema for creating new content"""
 
-    unit_id: str = Field(...)
-    parent_content_id: str | None = None
+    title: str = Field(..., min_length=1, max_length=500)
+    content_type: ContentType
+    body: str = Field(default="", description="Markdown content body")
+    summary: str | None = None
     order_index: int = Field(default=0, ge=0)
-    status: str | None = Field(default="draft")
+    week_number: int | None = Field(None, ge=1, le=52)
+    estimated_duration_minutes: int | None = Field(None, ge=0, le=600)
 
 
 class ContentUpdate(CamelModel):
-    """Schema for updating content - all fields optional"""
+    """Schema for updating content"""
 
     title: str | None = Field(None, min_length=1, max_length=500)
-    type: str | None = None
-    status: str | None = None
-    content_markdown: str | None = None
+    body: str | None = Field(None, description="Markdown content body")
     summary: str | None = None
     order_index: int | None = Field(None, ge=0)
-    estimated_duration_minutes: int | None = Field(None, ge=0, le=600)
-    difficulty_level: str | None = None
-    learning_objectives: list[str] | None = None
+    week_number: int | None = None
+    status: ContentStatus | None = None
+    estimated_duration_minutes: int | None = None
 
 
-class ContentResponse(ContentBase):
-    """Schema for content responses"""
+class ContentResponse(CamelModel):
+    """Schema for content responses (includes body from Git)"""
 
     id: str
-    status: str
     unit_id: str
-    parent_content_id: str | None
+    title: str
+    content_type: str
+    body: str = Field(default="", description="Markdown content from Git")
+    summary: str | None = None
     order_index: int
-    created_at: str
-    updated_at: str
+    week_number: int | None = None
+    status: str
+    estimated_duration_minutes: int | None = None
+    current_commit: str | None = None
+    created_at: datetime | str
+    updated_at: datetime | str | None = None
 
-    class Config:
-        from_attributes = True
+
+class ContentMetadata(CamelModel):
+    """Schema for content metadata (without body - for listings)"""
+
+    id: str
+    unit_id: str
+    title: str
+    content_type: str
+    summary: str | None = None
+    order_index: int
+    week_number: int | None = None
+    status: str
+    estimated_duration_minutes: int | None = None
+    created_at: datetime | str
+    updated_at: datetime | str | None = None
 
 
-class ContentListResponse(CamelModel):
-    """Schema for paginated content list responses"""
+class ContentList(CamelModel):
+    """Schema for content list responses"""
 
-    contents: list[ContentResponse]
+    contents: list[ContentMetadata]
     total: int
-    skip: int
-    limit: int
 
 
-# Legacy schemas for LLM generation (kept for compatibility)
+# =============================================================================
+# Version History Schemas
+# =============================================================================
+
+
+class ContentVersion(CamelModel):
+    """Schema for a content version (from Git history)"""
+
+    commit: str
+    date: str
+    message: str
+    author_email: str | None = None
+
+
+class ContentHistory(CamelModel):
+    """Schema for content version history"""
+
+    content_id: str
+    versions: list[ContentVersion]
+
+
+class ContentDiff(CamelModel):
+    """Schema for diff between versions"""
+
+    content_id: str
+    old_commit: str
+    new_commit: str
+    diff: str
+
+
+class ContentRevertRequest(CamelModel):
+    """Schema for reverting to a previous version"""
+
+    commit: str = Field(..., description="Commit hash to revert to")
+
+
+# =============================================================================
+# LLM Generation schemas (for AI features)
+# =============================================================================
+
+
 class ContentGenerationRequest(CamelModel):
     """Request schema for content generation via LLM"""
 
-    content_type: str
+    content_type: ContentType
     pedagogy_style: str
-    topic: str | None = None  # Simple topic string for generation
-    context: str | None = None  # Additional context/instructions
+    topic: str | None = None
+    context: str | None = None
     stream: bool = False
 
 
@@ -84,63 +163,4 @@ class ContentEnhanceRequest(CamelModel):
 
     content: str
     pedagogy_style: str
-    suggestions: list | None = None
-
-
-class ContentValidationResponse(CamelModel):
-    """Response schema for content validation"""
-
-    is_valid: bool
-    issues: list
-    suggestions: list
-
-
-# Simplified schemas for backward compatibility
-class ContentGenerate(CamelModel):
-    """Request schema for content generation"""
-
-    topic: str
-    pedagogy: str
-    content_type: str
-
-
-class ContentEnhance(CamelModel):
-    """Request schema for content enhancement"""
-
-    content: str
-    enhancement_type: str
-
-
-class ContentVersionCreate(CamelModel):
-    """Schema for creating a new content version"""
-
-    title: str = Field(..., min_length=1, max_length=500)
-    content_markdown: str | None = None
-    content_html: str | None = None
-    change_description: str | None = None
-
-
-class ContentVersionResponse(CamelModel):
-    """Schema for content version responses"""
-
-    id: str
-    material_id: str
-    version: int
-    parent_version_id: str | None = None
-    title: str
-    content: dict[str, Any]
-    raw_content: str | None = None
-    created_at: str
-    created_by: str | None = None
-    change_summary: str | None = None
-    is_latest: bool
-    word_count: int | None = None
-    quality_score: float | None = None
-
-
-class ContentVersionCompare(CamelModel):
-    """Schema for comparing two content versions"""
-
-    old_version_id: str = Field(alias="oldVersionId")
-    new_version_id: str = Field(alias="newVersionId")
-    differences: list[dict[str, Any]]
+    suggestions: list[str] | None = None

@@ -10,7 +10,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.learning_outcomes import LocalLearningOutcome
+from app.models.local_learning_outcome import LocalLearningOutcome
 from app.models.mappings import material_ulo_mappings
 from app.models.weekly_material import MaterialStatus, WeeklyMaterial
 from app.schemas.learning_outcomes import LLOCreate

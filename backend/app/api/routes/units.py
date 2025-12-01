@@ -1,22 +1,25 @@
 """
 API routes for unit CRUD operations
+
+Uses SQLAlchemy ORM via unit_repo.
 """
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.core.database import get_db
-from app.models.unit import DifficultyLevel, PedagogyType, Semester, Unit, UnitStatus
-from app.models.user import User
+from app.repositories import unit_repo
 from app.schemas.unit import (
     UnitCreate,
+    UnitList,
     UnitResponse,
+    UnitStatus,
     UnitUpdate,
 )
+from app.schemas.user import UserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -36,73 +39,51 @@ async def test_post_endpoint():
     return {"message": "POST works!", "status": "OK"}
 
 
-@router.get("/", response_model=list[UnitResponse])
-def get_units(
+@router.get("", response_model=UnitList)
+async def get_units(
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     status: UnitStatus | None = None,
     search: str | None = None,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
-    Get all units for the current user with optional filtering
+    Get all units for the current user with optional filtering.
     """
-    query = db.query(Unit).filter(Unit.owner_id == current_user.id)
+    units = unit_repo.search_units(
+        db,
+        owner_id=current_user.id,
+        search=search,
+        status=status.value if status else None,
+        skip=skip,
+        limit=limit,
+    )
 
-    if status:
-        query = query.filter(Unit.status == status.value)
-
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            or_(
-                Unit.title.ilike(search_term),
-                Unit.code.ilike(search_term),
-                Unit.description.ilike(search_term),
-            )
-        )
-
-    # Apply pagination
-    units = query.offset(skip).limit(limit).all()
-
-    # Convert UUIDs to strings for each unit
-    for unit in units:
-        unit.id = str(unit.id)
-        unit.owner_id = str(unit.owner_id)
-        unit.created_by_id = str(unit.created_by_id)
-        if unit.updated_by_id:
-            unit.updated_by_id = str(unit.updated_by_id)
-
-    return units
+    return UnitList(units=units, total=len(units))
 
 
 @router.get("/{unit_id}", response_model=UnitResponse)
-def get_unit(
+async def get_unit(
     unit_id: str,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
 ):
     """
-    Get a specific unit by ID
+    Get a specific unit by ID.
     """
-    unit = (
-        db.query(Unit)
-        .filter(Unit.id == unit_id, Unit.owner_id == current_user.id)
-        .first()
-    )
+    unit = unit_repo.get_unit_by_id(db, unit_id)
 
     if not unit:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    # Convert UUIDs to strings for response
-    unit.id = str(unit.id)
-    unit.owner_id = str(unit.owner_id)
-    unit.created_by_id = str(unit.created_by_id)
-    if unit.updated_by_id:
-        unit.updated_by_id = str(unit.updated_by_id)
+    # Check ownership (admin can access any unit)
+    if unit.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+        )
 
     return unit
 
@@ -110,209 +91,141 @@ def get_unit(
 @router.post("/create", response_model=UnitResponse)
 async def create_unit(
     unit_data: UnitCreate,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
 ):
     """
-    Create a new unit
+    Create a new unit.
     """
     logger.info("[CREATE_UNIT] === ROUTE HANDLER CALLED ===")
     logger.info(f"[CREATE_UNIT] User: {current_user.email}")
     logger.info(f"[CREATE_UNIT] Unit data received: {unit_data.model_dump()}")
 
-    # Check if unit with same code, year, and semester already exists for this user
-    existing_unit = (
-        db.query(Unit)
-        .filter(
-            Unit.code == unit_data.code,
-            Unit.year == unit_data.year,
-            Unit.semester == unit_data.semester,
-            Unit.owner_id == current_user.id,
+    # Check if unit with same code already exists for this user
+    # Handle semester - could be Enum or string depending on serialization
+    semester_value = None
+    if unit_data.semester:
+        semester_value = (
+            unit_data.semester.value
+            if hasattr(unit_data.semester, "value")
+            else str(unit_data.semester)
         )
-        .first()
-    )
 
-    if existing_unit:
+    if unit_repo.unit_exists_by_code(
+        db,
+        owner_id=current_user.id,
+        code=unit_data.code,
+        year=unit_data.year,
+        semester=semester_value,
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unit with code {unit_data.code} already exists for {unit_data.year} {unit_data.semester if unit_data.semester else 'Semester 1'}",
+            detail=f"Unit with code {unit_data.code} already exists",
         )
 
-    # Create new unit
-    db_unit = Unit(
-        title=unit_data.title,
-        code=unit_data.code,
-        description=unit_data.description,
-        year=unit_data.year,
-        semester=unit_data.semester
-        if unit_data.semester
-        else Semester.SEMESTER_1.value,
-        status=unit_data.status if unit_data.status else UnitStatus.DRAFT.value,
-        pedagogy_type=unit_data.pedagogy_type
-        if unit_data.pedagogy_type
-        else PedagogyType.INQUIRY_BASED.value,
-        difficulty_level=unit_data.difficulty_level
-        if unit_data.difficulty_level
-        else DifficultyLevel.INTERMEDIATE.value,
-        duration_weeks=unit_data.duration_weeks or 12,
-        credit_points=unit_data.credit_points or 6,
-        prerequisites=unit_data.prerequisites,
-        learning_hours=unit_data.learning_hours,
-        owner_id=current_user.id,
-        created_by_id=current_user.id,
-        unit_metadata=unit_data.unit_metadata,
-        generation_context=unit_data.generation_context,
-    )
-
-    db.add(db_unit)
-    db.commit()
-    db.refresh(db_unit)
-
-    # Convert UUIDs to strings for response
-    db_unit.id = str(db_unit.id)
-    db_unit.owner_id = str(db_unit.owner_id)
-    db_unit.created_by_id = str(db_unit.created_by_id)
-    if db_unit.updated_by_id:
-        db_unit.updated_by_id = str(db_unit.updated_by_id)
-
-    return db_unit
-
-
-@router.put("/{unit_id}", response_model=UnitResponse)
-def update_unit(
-    unit_id: str,
-    unit_data: UnitUpdate,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Update an existing unit
-    """
-    unit = (
-        db.query(Unit)
-        .filter(Unit.id == unit_id, Unit.owner_id == current_user.id)
-        .first()
-    )
-
-    if not unit:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
-        )
-
-    # Update fields if provided
-    update_data = unit_data.dict(exclude_unset=True)
-
-    # Enums are already converted to strings by Pydantic CamelModel
-
-    # Track who made the update
-    update_data["updated_by_id"] = current_user.id
-
-    for field, value in update_data.items():
-        setattr(unit, field, value)
-
-    db.commit()
-    db.refresh(unit)
-
-    # Convert UUIDs to strings for response
-    unit.id = str(unit.id)
-    unit.owner_id = str(unit.owner_id)
-    unit.created_by_id = str(unit.created_by_id)
-    if unit.updated_by_id:
-        unit.updated_by_id = str(unit.updated_by_id)
+    unit = unit_repo.create_unit(db, data=unit_data, owner_id=current_user.id)
+    logger.info(f"[CREATE_UNIT] Unit created: {unit.id}")
 
     return unit
 
 
-@router.delete("/{unit_id}")
-def delete_unit(
+@router.put("/{unit_id}", response_model=UnitResponse)
+async def update_unit(
     unit_id: str,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
+    unit_data: UnitUpdate,
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
 ):
     """
-    Delete a unit
+    Update an existing unit.
     """
-    unit = (
-        db.query(Unit)
-        .filter(Unit.id == unit_id, Unit.owner_id == current_user.id)
-        .first()
-    )
+    # Check if unit exists and user owns it
+    existing_unit = unit_repo.get_unit_by_id(db, unit_id)
+
+    if not existing_unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+        )
+
+    if existing_unit.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+        )
+
+    unit = unit_repo.update_unit(db, unit_id=unit_id, data=unit_data)
 
     if not unit:
         raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update unit",
+        )
+
+    return unit
+
+
+@router.delete("/{unit_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_unit(
+    unit_id: str,
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
+):
+    """
+    Delete a unit and all its content.
+    """
+    # Check if unit exists and user owns it
+    existing_unit = unit_repo.get_unit_by_id(db, unit_id)
+
+    if not existing_unit:
+        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    db.delete(unit)
-    db.commit()
+    if existing_unit.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
+        )
 
-    return {"message": "Unit deleted successfully"}
+    if not unit_repo.delete_unit(db, unit_id):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete unit",
+        )
 
 
 @router.post("/{unit_id}/duplicate", response_model=UnitResponse)
-def duplicate_unit(
+async def duplicate_unit(
     unit_id: str,
-    new_code: str,
-    current_user: User = Depends(deps.get_current_user),
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(deps.get_db)],
+    current_user: Annotated[UserResponse, Depends(deps.get_current_active_user)],
+    new_title: str | None = None,
 ):
     """
-    Duplicate an existing unit with a new code
+    Duplicate an existing unit.
     """
-    # Get original unit
-    original_unit = (
-        db.query(Unit)
-        .filter(Unit.id == unit_id, Unit.owner_id == current_user.id)
-        .first()
-    )
+    # Check if unit exists and user owns it
+    existing_unit = unit_repo.get_unit_by_id(db, unit_id)
 
-    if not original_unit:
+    if not existing_unit:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    # Check if new code already exists
-    existing_unit = (
-        db.query(Unit)
-        .filter(Unit.code == new_code, Unit.owner_id == current_user.id)
-        .first()
-    )
-
-    if existing_unit:
+    if existing_unit.owner_id != current_user.id and current_user.role != "admin":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unit with this code already exists",
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found"
         )
 
-    # Create duplicate
-    db_unit = Unit(
-        title=f"{original_unit.title} (Copy)",
-        code=new_code,
-        description=original_unit.description,
-        year=original_unit.year,
-        semester=original_unit.semester,
-        status=UnitStatus.DRAFT.value,  # Always set to draft for duplicates
-        pedagogy_type=original_unit.pedagogy_type,
-        difficulty_level=original_unit.difficulty_level,
-        duration_weeks=original_unit.duration_weeks,
-        credit_points=original_unit.credit_points,
-        prerequisites=original_unit.prerequisites,
-        learning_hours=original_unit.learning_hours,
+    new_unit = unit_repo.duplicate_unit(
+        db,
+        unit_id=unit_id,
         owner_id=current_user.id,
-        created_by_id=current_user.id,
-        unit_metadata=original_unit.unit_metadata,
-        generation_context=original_unit.generation_context,
+        new_title=new_title,
     )
 
-    db.add(db_unit)
-    db.commit()
-    db.refresh(db_unit)
+    if not new_unit:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to duplicate unit",
+        )
 
-    # Convert UUIDs to strings for response
-    db_unit.id = str(db_unit.id)
-    db_unit.owner_id = str(db_unit.owner_id)
-    db_unit.created_by_id = str(db_unit.created_by_id)
-    if db_unit.updated_by_id:
-        db_unit.updated_by_id = str(db_unit.updated_by_id)
-
-    return db_unit
+    return new_unit

@@ -31,12 +31,13 @@ from .learning_outcome import (
     UnitLearningOutcome,
 )
 from .llm_config import LLMConfiguration, TokenUsageLog
+from .local_learning_outcome import LocalLearningOutcome
 from .login_attempt import LoginAttempt, LoginAttemptType
+from .lrd import LRD, LRDStatus
 from .mappings import (
     assessment_material_links,
     assessment_ulo_mappings,
     material_ulo_mappings,
-    wlo_ulo_mappings,
 )
 from .material import Material, MaterialType
 from .password_reset import PasswordReset
@@ -45,6 +46,7 @@ from .quiz_question import QuestionType, QuizQuestion
 from .security_log import SecurityEventType, SecurityLog
 from .system_config import ConfigCategory, SystemConfig
 from .system_settings import SystemSettings
+from .task_list import TaskList, TaskStatus
 
 # Core academic models
 from .unit import DifficultyLevel, PedagogyType, Semester, Unit, UnitStatus
@@ -99,6 +101,13 @@ __all__ = [
     # LLM Configuration
     "LLMConfiguration",
     "TokenUsageLog",
+    # Local Learning Outcomes
+    "LocalLearningOutcome",
+    # LRD and TaskList
+    "LRD",
+    "LRDStatus",
+    "TaskList",
+    "TaskStatus",
     # Materials
     "Material",
     "MaterialType",
@@ -132,6 +141,5 @@ __all__ = [
     "AssessmentLearningOutcome",
     "material_ulo_mappings",
     "assessment_ulo_mappings",
-    "wlo_ulo_mappings",
     "assessment_material_links",
 ]

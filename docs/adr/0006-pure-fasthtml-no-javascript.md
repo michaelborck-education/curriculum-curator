@@ -4,7 +4,9 @@ Date: 2024-01-15
 
 ## Status
 
-Accepted
+Superseded by [ADR-0016: React + TypeScript Frontend](0016-react-typescript-frontend.md)
+
+**Historical Note**: The "no JavaScript" constraint was relaxed when rich text editing (TipTap) became a core requirement. The project now uses TypeScript/React for the frontend.
 
 ## Context
 

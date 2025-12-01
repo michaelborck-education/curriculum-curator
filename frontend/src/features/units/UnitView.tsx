@@ -16,7 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getUnit, getContents, deleteContent } from '../../services/api';
+import { getUnit, getUnitContents, deleteContent } from '../../services/api';
 import { Modal, Button, EmptyState } from '../../components/ui';
 import type { Unit, UnitModule, ContentType, Content } from '../../types/index';
 
@@ -42,7 +42,7 @@ const UnitView = () => {
       try {
         const [unitResponse, contentsResponse] = await Promise.all([
           getUnit(id),
-          getContents(id),
+          getUnitContents(id),
         ]);
         setUnit(unitResponse.data);
         setContents(contentsResponse.data?.contents || []);
@@ -59,11 +59,11 @@ const UnitView = () => {
   }, [id]);
 
   const handleDeleteContent = async () => {
-    if (!contentToDelete) return;
+    if (!contentToDelete || !id) return;
 
     setIsDeleting(true);
     try {
-      await deleteContent(contentToDelete.id);
+      await deleteContent(id, contentToDelete.id);
       setContents(contents.filter(c => c.id !== contentToDelete.id));
       toast.success('Content deleted successfully');
     } catch (error: unknown) {
@@ -203,7 +203,7 @@ const UnitView = () => {
             ) : (
               <div className='space-y-3'>
                 {contents.map((content: Content) => {
-                  const IconComponent = getContentIcon(content.type);
+                  const IconComponent = getContentIcon(content.contentType);
 
                   return (
                     <div
@@ -226,7 +226,9 @@ const UnitView = () => {
                             {content.title}
                           </h3>
                           <div className='flex items-center gap-3 text-sm text-gray-500'>
-                            <span className='capitalize'>{content.type}</span>
+                            <span className='capitalize'>
+                              {content.contentType}
+                            </span>
                             {content.estimatedDurationMinutes && (
                               <span className='flex items-center gap-1'>
                                 <Clock size={14} />

@@ -16,7 +16,7 @@ from app.models.common import GUID
 if TYPE_CHECKING:
     from app.models.assessment import Assessment
     from app.models.learning_outcome import UnitLearningOutcome
-    from app.models.learning_outcomes import LocalLearningOutcome
+    from app.models.local_learning_outcome import LocalLearningOutcome
     from app.models.unit import Unit
 
 

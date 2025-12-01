@@ -1,5 +1,7 @@
 """
-Database and authentication dependencies for FastAPI routes
+Authentication dependencies for FastAPI routes
+
+Uses SQLAlchemy ORM for database access via dependency injection.
 """
 
 import logging
@@ -13,17 +15,27 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.models import Content, Unit, User, UserRole
+from app.repositories import content_repo, unit_repo, user_repo
+from app.schemas.content import ContentResponse
+from app.schemas.unit import UnitResponse
+from app.schemas.user import UserResponse
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
-# Use HTTPBearer instead of OAuth2PasswordBearer - simpler, no OAuth2 complexity
+# Use HTTPBearer for JWT authentication
 security = HTTPBearer()
+
+# User role constants
+ROLE_ADMIN = "admin"
+ROLE_LECTURER = "lecturer"
+ROLE_STUDENT = "student"
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Database session dependency."""
+    """Get SQLAlchemy database session"""
+    if SessionLocal is None:
+        raise RuntimeError("Database not configured")
     db = SessionLocal()
     try:
         yield db
@@ -34,13 +46,9 @@ def get_db() -> Generator[Session, None, None]:
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
-) -> User:
+) -> UserResponse:
     """Get current user from JWT token."""
-    logger.info("[AUTH] ===== STARTING AUTHENTICATION =====")
-    logger.info(f"[AUTH] Credentials type: {type(credentials)}")
-    logger.info(f"[AUTH] Credentials: {credentials}")
     token = credentials.credentials
-    logger.info(f"[AUTH] Got token: {token[:20]}...")
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,32 +57,27 @@ def get_current_user(
     )
 
     try:
-        # Decode JWT token - no IP verification for now
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: str | None = payload.get("sub")
-        logger.info(f"[AUTH] Decoded user_id: {user_id}")
         if user_id is None:
             raise credentials_exception
     except JWTError:
-        # JWT decode error - invalid token
         logger.exception("[AUTH] JWT decode failed")
         raise credentials_exception from None
 
-    # Fetch the user from the database
-    user = db.query(User).filter(User.id == user_id).first()
+    user = user_repo.get_user_by_id(db, user_id)
     if user is None:
         logger.error(f"[AUTH] User not found for id: {user_id}")
         raise credentials_exception
 
-    logger.info(f"[AUTH] Found user: {user.email}, role: {user.role}")
     return user
 
 
 def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+) -> UserResponse:
     """Get current active user."""
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
@@ -82,39 +85,30 @@ def get_current_active_user(
 
 
 def get_current_admin_user(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> User:
+    current_user: Annotated[UserResponse, Depends(get_current_active_user)],
+) -> UserResponse:
     """Get current user and verify admin role."""
-    logger.info(
-        f"[ADMIN CHECK] User {current_user.email} has role: '{current_user.role}', expected: '{UserRole.ADMIN.value}'"
-    )
-
-    # Re-enable admin check
-    if current_user.role != UserRole.ADMIN.value:
+    if current_user.role != ROLE_ADMIN:
         logger.error(
-            f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{UserRole.ADMIN.value}'"
+            f"[ADMIN DENIED] {current_user.email} role '{current_user.role}' != '{ROLE_ADMIN}'"
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
-    logger.info(f"[ADMIN ALLOWED] User {current_user.email} has admin privileges")
     return current_user
 
 
 def get_user_or_admin_override(
     resource_owner_id: str,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[UserResponse, Depends(get_current_active_user)],
 ) -> bool:
     """
     Check if user owns resource or is admin.
     Returns True if access should be granted.
     """
-    # Admin can access everything
-    if current_user.role == UserRole.ADMIN.value:
+    if current_user.role == ROLE_ADMIN:
         return True
-
-    # User can only access their own resources
-    return str(current_user.id) == str(resource_owner_id)
+    return current_user.id == resource_owner_id
 
 
 # =============================================================================
@@ -125,20 +119,17 @@ def get_user_or_admin_override(
 def get_user_unit(
     unit_id: str,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> Unit:
+    current_user: Annotated[UserResponse, Depends(get_current_active_user)],
+) -> UnitResponse:
     """
     Get a unit that belongs to the current user.
     Raises 404 if unit not found or user doesn't own it.
     """
-    unit = (
-        db.query(Unit)
-        .filter(Unit.id == unit_id)
-        .filter(Unit.owner_id == current_user.id)
-        .first()
-    )
+    unit = unit_repo.get_unit_by_id(db, unit_id)
 
-    if not unit:
+    if not unit or (
+        unit.owner_id != current_user.id and current_user.role != ROLE_ADMIN
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Unit not found or access denied",
@@ -150,21 +141,25 @@ def get_user_unit(
 def get_user_content(
     content_id: str,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> Content:
+    current_user: Annotated[UserResponse, Depends(get_current_active_user)],
+) -> ContentResponse:
     """
     Get content that belongs to the current user (via unit ownership).
     Raises 404 if content not found or user doesn't own the parent unit.
     """
-    content = (
-        db.query(Content)
-        .join(Unit, Content.unit_id == Unit.id)
-        .filter(Content.id == content_id)
-        .filter(Unit.owner_id == current_user.id)
-        .first()
-    )
+    content = content_repo.get_content_by_id(db, content_id)
 
     if not content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Content not found",
+        )
+
+    # Check unit ownership
+    unit = unit_repo.get_unit_by_id(db, content.unit_id)
+    if not unit or (
+        unit.owner_id != current_user.id and current_user.role != ROLE_ADMIN
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Content not found or access denied",
@@ -173,12 +168,5 @@ def get_user_content(
     return content
 
 
-def get_user_unit_by_path(
-    unit_id: str,
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_active_user)],
-) -> Unit:
-    """
-    Alias for get_user_unit - use when unit_id comes from path parameter.
-    """
-    return get_user_unit(unit_id, db, current_user)
+# Alias for path parameter usage
+get_user_unit_by_path = get_user_unit
