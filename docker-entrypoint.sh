@@ -8,7 +8,7 @@ echo "🚀 Starting Curriculum Curator..."
 
 # Ensure data directories exist with correct permissions
 echo "📁 Checking data directories..."
-for dir in /app/backend/data /app/backend/uploads /app/backend/logs /app/backend/content_repo; do
+for dir in /app/backend/data /app/backend/uploads /app/backend/logs /app/backend/content_repo /app/backend/content_repos; do
     if [ ! -d "$dir" ]; then
         echo "   Creating $dir"
         mkdir -p "$dir"

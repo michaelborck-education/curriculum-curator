@@ -8,13 +8,12 @@ services:
     networks:
       - caddy_default
     volumes:
-      # Mount the backend .env file with SMTP settings
-      - ./backend/.env:/app/backend/.env:ro
       # Persistent data - these directories will survive container restarts
       - ./data/db:/app/backend/data
       - ./data/uploads:/app/backend/uploads
       - ./data/logs:/app/backend/logs
       - ./data/content_repo:/app/backend/content_repo
+      - ./data/content_repos:/app/backend/content_repos
     environment:
       # Database
       - DATABASE_URL=sqlite:///./data/curriculum_curator.db
