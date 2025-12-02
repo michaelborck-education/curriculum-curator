@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
+    from app.models.accreditation_mappings import ULOGraduateCapabilityMapping
     from app.models.assessment import Assessment
     from app.models.content import Content
     from app.models.unit import Unit
@@ -135,6 +136,11 @@ class UnitLearningOutcome(Base):
     # Many-to-many with content
     contents: Mapped[list["Content"]] = relationship(
         secondary=content_outcomes, back_populates="learning_outcomes"
+    )
+
+    # Graduate Capability mappings
+    graduate_capability_mappings: Mapped[list["ULOGraduateCapabilityMapping"]] = (
+        relationship(back_populates="ulo", cascade="all, delete-orphan")
     )
 
     def __repr__(self) -> str:

@@ -2,6 +2,21 @@
 Pydantic schemas for API request/response models
 """
 
+from .accreditation import (
+    AoLCompetencyCode,
+    AoLLevel,
+    AoLMappingCreate,
+    AoLMappingResponse,
+    AoLMappingSummary,
+    AoLMappingUpdate,
+    BulkAoLMappingCreate,
+    BulkGraduateCapabilityMappingCreate,
+    GraduateCapabilityCode,
+    GraduateCapabilityMappingCreate,
+    GraduateCapabilityMappingResponse,
+    GraduateCapabilityMappingUpdate,
+    ULOWithCapabilities,
+)
 from .admin import (
     AuditLogResponse,
     DatabaseBackupResponse,
@@ -30,8 +45,16 @@ from .auth import (
 from .user import UserResponse
 
 __all__ = [
+    "AoLCompetencyCode",
+    "AoLLevel",
+    "AoLMappingCreate",
+    "AoLMappingResponse",
+    "AoLMappingSummary",
+    "AoLMappingUpdate",
     # Admin schemas
     "AuditLogResponse",
+    "BulkAoLMappingCreate",
+    "BulkGraduateCapabilityMappingCreate",
     "DatabaseBackupResponse",
     # Auth schemas
     "EmailVerificationRequest",
@@ -41,6 +64,11 @@ __all__ = [
     "EmailWhitelistUpdate",
     "ForgotPasswordRequest",
     "ForgotPasswordResponse",
+    # Accreditation schemas
+    "GraduateCapabilityCode",
+    "GraduateCapabilityMappingCreate",
+    "GraduateCapabilityMappingResponse",
+    "GraduateCapabilityMappingUpdate",
     "LoginRequest",
     "LoginResponse",
     "ResendVerificationRequest",
@@ -49,6 +77,7 @@ __all__ = [
     "ResetPasswordResponse",
     "SystemSettingsResponse",
     "SystemSettingsUpdate",
+    "ULOWithCapabilities",
     "UserListResponse",
     "UserRegistrationRequest",
     "UserRegistrationResponse",

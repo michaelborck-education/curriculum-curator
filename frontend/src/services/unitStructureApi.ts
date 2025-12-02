@@ -34,6 +34,16 @@ import {
   AlignmentReport,
   WeeklyWorkload,
   QualityScore,
+
+  // Accreditation
+  GraduateCapabilityMapping,
+  GraduateCapabilityMappingCreate,
+  BulkGraduateCapabilityMappingCreate,
+  AoLMapping,
+  AoLMappingCreate,
+  BulkAoLMappingCreate,
+  AoLMappingSummary,
+  GraduateCapabilityCode,
 } from '../types/unitStructure';
 
 // ============= Learning Outcomes API =============
@@ -401,5 +411,89 @@ export const analyticsApi = {
   getUnitStatistics: async (unitId: string): Promise<any> => {
     const response = await api.get(`/analytics/units/${unitId}/statistics`);
     return response.data;
+  },
+};
+
+// ============= Accreditation API =============
+
+export const accreditationApi = {
+  // Graduate Capability Mappings (ULO-level)
+  getULOGraduateCapabilities: async (
+    uloId: string
+  ): Promise<GraduateCapabilityMapping[]> => {
+    const response = await api.get(
+      `/accreditation/ulos/${uloId}/graduate-capabilities`
+    );
+    return response.data;
+  },
+
+  addULOGraduateCapability: async (
+    uloId: string,
+    data: GraduateCapabilityMappingCreate
+  ): Promise<GraduateCapabilityMapping> => {
+    const response = await api.post(
+      `/accreditation/ulos/${uloId}/graduate-capabilities`,
+      data
+    );
+    return response.data;
+  },
+
+  updateULOGraduateCapabilities: async (
+    uloId: string,
+    data: BulkGraduateCapabilityMappingCreate
+  ): Promise<GraduateCapabilityMapping[]> => {
+    const response = await api.put(
+      `/accreditation/ulos/${uloId}/graduate-capabilities`,
+      data
+    );
+    return response.data;
+  },
+
+  removeULOGraduateCapability: async (
+    uloId: string,
+    capabilityCode: GraduateCapabilityCode
+  ): Promise<void> => {
+    await api.delete(
+      `/accreditation/ulos/${uloId}/graduate-capabilities/${capabilityCode}`
+    );
+  },
+
+  // AoL Mappings (Unit-level)
+  getUnitAoLMappings: async (unitId: string): Promise<AoLMappingSummary> => {
+    const response = await api.get(
+      `/accreditation/units/${unitId}/aol-mappings`
+    );
+    return response.data;
+  },
+
+  addUnitAoLMapping: async (
+    unitId: string,
+    data: AoLMappingCreate
+  ): Promise<AoLMapping> => {
+    const response = await api.post(
+      `/accreditation/units/${unitId}/aol-mappings`,
+      data
+    );
+    return response.data;
+  },
+
+  updateUnitAoLMappings: async (
+    unitId: string,
+    data: BulkAoLMappingCreate
+  ): Promise<AoLMappingSummary> => {
+    const response = await api.put(
+      `/accreditation/units/${unitId}/aol-mappings`,
+      data
+    );
+    return response.data;
+  },
+
+  removeUnitAoLMapping: async (
+    unitId: string,
+    competencyCode: string
+  ): Promise<void> => {
+    await api.delete(
+      `/accreditation/units/${unitId}/aol-mappings/${competencyCode}`
+    );
   },
 };

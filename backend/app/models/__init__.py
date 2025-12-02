@@ -6,6 +6,13 @@ Database models for Curriculum Curator
 # Authentication models
 # Import models in dependency order
 # New unit structure models
+from .accreditation_mappings import (
+    AoLCompetencyCode,
+    AoLLevel,
+    GraduateCapabilityCode,
+    ULOGraduateCapabilityMapping,
+    UnitAoLMapping,
+)
 from .assessment import (
     Assessment,
     AssessmentCategory,
@@ -62,6 +69,12 @@ from .weekly_topic import WeeklyTopic, WeekType
 __all__ = [
     # Common types
     "GUID",
+    # Accreditation mappings
+    "GraduateCapabilityCode",
+    "AoLCompetencyCode",
+    "AoLLevel",
+    "ULOGraduateCapabilityMapping",
+    "UnitAoLMapping",
     # Authentication
     "EmailVerification",
     "EmailWhitelist",

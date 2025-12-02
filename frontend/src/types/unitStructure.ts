@@ -347,3 +347,72 @@ export interface AssessmentMapping {
 export interface MaterialMapping {
   uloIds: string[];
 }
+
+// ============= Accreditation Mappings =============
+
+export type GraduateCapabilityCode =
+  | 'GC1'
+  | 'GC2'
+  | 'GC3'
+  | 'GC4'
+  | 'GC5'
+  | 'GC6';
+export type AoLCompetencyCode =
+  | 'AOL1'
+  | 'AOL2'
+  | 'AOL3'
+  | 'AOL4'
+  | 'AOL5'
+  | 'AOL6'
+  | 'AOL7';
+export type AoLLevel = 'I' | 'R' | 'M';
+
+export interface GraduateCapabilityMapping {
+  id: string;
+  uloId: string;
+  capabilityCode: GraduateCapabilityCode;
+  isAiSuggested: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GraduateCapabilityMappingCreate {
+  capabilityCode: GraduateCapabilityCode;
+  isAiSuggested?: boolean;
+  notes?: string;
+}
+
+export interface BulkGraduateCapabilityMappingCreate {
+  capabilityCodes: GraduateCapabilityCode[];
+  isAiSuggested?: boolean;
+}
+
+export interface AoLMapping {
+  id: string;
+  unitId: string;
+  competencyCode: AoLCompetencyCode;
+  level: AoLLevel;
+  isAiSuggested: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AoLMappingCreate {
+  competencyCode: AoLCompetencyCode;
+  level: AoLLevel;
+  isAiSuggested?: boolean;
+  notes?: string;
+}
+
+export interface BulkAoLMappingCreate {
+  mappings: AoLMappingCreate[];
+}
+
+export interface AoLMappingSummary {
+  unitId: string;
+  mappedCount: number;
+  totalCompetencies: number;
+  mappings: AoLMapping[];
+}

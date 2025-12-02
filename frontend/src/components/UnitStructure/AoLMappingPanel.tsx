@@ -6,26 +6,36 @@ import {
   Info,
   Loader2,
   GraduationCap,
+  Save,
 } from 'lucide-react';
 import {
   AOL_COMPETENCIES,
   AOL_LEVELS,
-  AoLMapping,
+  AoLMapping as LocalAoLMapping,
   AoLLevel,
   AoLCompetency,
   suggestAoLMappings,
   getMappedCount,
 } from '../../constants/aolCompetencies';
-import { learningOutcomesApi } from '../../services/unitStructureApi';
-import { ULOResponse } from '../../types/unitStructure';
+import {
+  learningOutcomesApi,
+  accreditationApi,
+} from '../../services/unitStructureApi';
+import { ULOResponse, AoLCompetencyCode } from '../../types/unitStructure';
+import toast from 'react-hot-toast';
 
 interface AoLMappingPanelProps {
   unitId: string;
 }
 
+// Map competency id (aol1) to code (AOL1) for API
+const idToCode = (id: string): AoLCompetencyCode =>
+  id.toUpperCase() as AoLCompetencyCode;
+const codeToId = (code: string): string => code.toLowerCase();
+
 export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [mappings, setMappings] = useState<AoLMapping[]>(
+  const [mappings, setMappings] = useState<LocalAoLMapping[]>(
     AOL_COMPETENCIES.map(c => ({ competencyId: c.id, level: null }))
   );
   const [hoveredCompetency, setHoveredCompetency] =
@@ -35,7 +45,34 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
   >(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [suggesting, setSuggesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [ulos, setUlos] = useState<ULOResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load existing mappings from backend
+  const loadMappings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await accreditationApi.getUnitAoLMappings(unitId);
+      // Convert backend mappings to local format
+      const localMappings: LocalAoLMapping[] = AOL_COMPETENCIES.map(c => {
+        const backendMapping = response.mappings.find(
+          m => codeToId(m.competencyCode) === c.id
+        );
+        return {
+          competencyId: c.id,
+          level: backendMapping ? (backendMapping.level as AoLLevel) : null,
+        };
+      });
+      setMappings(localMappings);
+      setHasUnsavedChanges(false);
+    } catch {
+      // API might not exist yet - silently fail and use empty mappings
+    } finally {
+      setLoading(false);
+    }
+  }, [unitId]);
 
   // Load ULOs for AI suggestions
   const loadULOs = useCallback(async () => {
@@ -48,10 +85,13 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
   }, [unitId]);
 
   useEffect(() => {
-    if (isExpanded && ulos.length === 0) {
-      loadULOs();
+    if (isExpanded) {
+      loadMappings();
+      if (ulos.length === 0) {
+        loadULOs();
+      }
     }
-  }, [isExpanded, ulos.length, loadULOs]);
+  }, [isExpanded, loadMappings, ulos.length, loadULOs]);
 
   const handleLevelChange = (competencyId: string, level: AoLLevel) => {
     setMappings(prev =>
@@ -63,6 +103,33 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
         return m;
       })
     );
+    setHasUnsavedChanges(true);
+  };
+
+  // Save mappings to backend
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const mappingsToSave = mappings
+        .filter(m => m.level !== null)
+        .map(m => ({
+          competencyCode: idToCode(m.competencyId),
+          level: m.level as 'I' | 'R' | 'M',
+          isAiSuggested: false,
+        }));
+
+      await accreditationApi.updateUnitAoLMappings(unitId, {
+        mappings: mappingsToSave,
+      });
+
+      setHasUnsavedChanges(false);
+      toast.success('AoL mappings saved');
+    } catch (err) {
+      console.error('Error saving AoL mappings:', err);
+      toast.error('Failed to save AoL mappings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAISuggest = async () => {
@@ -82,18 +149,24 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
       const suggestions = suggestAoLMappings(descriptions, bloomLevels, []);
 
       // Merge suggestions with existing mappings (don't overwrite user choices)
-      setMappings(prev =>
-        prev.map(m => {
+      setMappings(prev => {
+        let changed = false;
+        const newMappings = prev.map(m => {
           const suggestion = suggestions.find(
             s => s.competencyId === m.competencyId
           );
           // Only apply suggestion if not already mapped
           if (m.level === null && suggestion) {
+            changed = true;
             return suggestion;
           }
           return m;
-        })
-      );
+        });
+        if (changed) {
+          setHasUnsavedChanges(true);
+        }
+        return newMappings;
+      });
     } catch (err) {
       console.error('Error generating AI suggestions:', err);
     } finally {
@@ -105,6 +178,7 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
     setMappings(
       AOL_COMPETENCIES.map(c => ({ competencyId: c.id, level: null }))
     );
+    setHasUnsavedChanges(true);
   };
 
   const mappedCount = getMappedCount(mappings);
@@ -185,164 +259,193 @@ export const AoLMappingPanel: React.FC<AoLMappingPanelProps> = ({ unitId }) => {
       {/* Expanded Content */}
       {isExpanded && (
         <div className='p-4'>
-          {/* Action buttons */}
-          <div className='flex items-center justify-between mb-4'>
-            <p className='text-sm text-gray-600'>
-              Map how this unit contributes to program-level learning goals
-            </p>
-            <div className='flex items-center gap-2'>
-              {mappedCount > 0 && (
-                <button
-                  onClick={handleClearAll}
-                  className='text-xs text-gray-500 hover:text-gray-700 px-2 py-1'
-                >
-                  Clear all
-                </button>
-              )}
-              <button
-                onClick={handleAISuggest}
-                disabled={suggesting}
-                className='flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 
+          {loading ? (
+            <div className='flex items-center justify-center py-8'>
+              <Loader2 className='w-6 h-6 text-purple-600 animate-spin' />
+              <span className='ml-2 text-gray-500'>Loading mappings...</span>
+            </div>
+          ) : (
+            <>
+              {/* Action buttons */}
+              <div className='flex items-center justify-between mb-4'>
+                <p className='text-sm text-gray-600'>
+                  Map how this unit contributes to program-level learning goals
+                </p>
+                <div className='flex items-center gap-2'>
+                  {mappedCount > 0 && (
+                    <button
+                      onClick={handleClearAll}
+                      className='text-xs text-gray-500 hover:text-gray-700 px-2 py-1'
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    onClick={handleAISuggest}
+                    disabled={suggesting}
+                    className='flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 
                            rounded-lg text-sm font-medium hover:bg-amber-100 transition
                            disabled:opacity-50 disabled:cursor-not-allowed'
-              >
-                {suggesting ? (
-                  <Loader2 className='w-4 h-4 animate-spin' />
-                ) : (
-                  <Sparkles className='w-4 h-4' />
-                )}
-                AI Suggest
-              </button>
-            </div>
-          </div>
+                  >
+                    {suggesting ? (
+                      <Loader2 className='w-4 h-4 animate-spin' />
+                    ) : (
+                      <Sparkles className='w-4 h-4' />
+                    )}
+                    AI Suggest
+                  </button>
+                  {hasUnsavedChanges && (
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className='flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white 
+                             rounded-lg text-sm font-medium hover:bg-purple-700 transition
+                             disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {saving ? (
+                        <Loader2 className='w-4 h-4 animate-spin' />
+                      ) : (
+                        <Save className='w-4 h-4' />
+                      )}
+                      Save
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          {/* Matrix Table */}
-          <div className='border border-gray-200 rounded-lg overflow-hidden'>
-            <table className='w-full'>
-              <thead>
-                <tr className='bg-gray-50'>
-                  <th className='text-left px-4 py-2 text-sm font-medium text-gray-700'>
-                    Competency Area
-                  </th>
-                  <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
-                    <span
-                      className='cursor-help'
-                      title='Introduce: First exposure, basic understanding'
-                    >
-                      I
-                    </span>
-                  </th>
-                  <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
-                    <span
-                      className='cursor-help'
-                      title='Reinforce: Practice and deepen skills'
-                    >
-                      R
-                    </span>
-                  </th>
-                  <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
-                    <span
-                      className='cursor-help'
-                      title='Master: Demonstrate proficiency at graduation level'
-                    >
-                      M
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {AOL_COMPETENCIES.map((competency, index) => {
-                  const mapping = getMapping(competency.id);
-                  const isUnmapped = mapping === null;
+              {/* Matrix Table */}
+              <div className='border border-gray-200 rounded-lg overflow-hidden'>
+                <table className='w-full'>
+                  <thead>
+                    <tr className='bg-gray-50'>
+                      <th className='text-left px-4 py-2 text-sm font-medium text-gray-700'>
+                        Competency Area
+                      </th>
+                      <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
+                        <span
+                          className='cursor-help'
+                          title='Introduce: First exposure, basic understanding'
+                        >
+                          I
+                        </span>
+                      </th>
+                      <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
+                        <span
+                          className='cursor-help'
+                          title='Reinforce: Practice and deepen skills'
+                        >
+                          R
+                        </span>
+                      </th>
+                      <th className='text-center px-2 py-2 text-sm font-medium text-gray-700 w-12'>
+                        <span
+                          className='cursor-help'
+                          title='Master: Demonstrate proficiency at graduation level'
+                        >
+                          M
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {AOL_COMPETENCIES.map((competency, index) => {
+                      const mapping = getMapping(competency.id);
+                      const isUnmapped = mapping === null;
 
-                  return (
-                    <tr
-                      key={competency.id}
-                      className={`
+                      return (
+                        <tr
+                          key={competency.id}
+                          className={`
                         border-t border-gray-100
                         ${isUnmapped ? 'bg-white' : competency.color}
                         ${index % 2 === 0 ? '' : 'bg-opacity-50'}
                       `}
-                    >
-                      <td className='px-4 py-3'>
-                        <div className='flex items-center gap-2'>
-                          <span className='text-lg'>{competency.icon}</span>
-                          <div>
-                            <span
-                              className={`font-medium ${isUnmapped ? 'text-gray-500' : 'text-gray-900'}`}
-                              onMouseEnter={e => {
-                                const rect =
-                                  e.currentTarget.getBoundingClientRect();
-                                setTooltipPosition({
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.bottom + 8,
-                                });
-                                setHoveredCompetency(competency);
-                              }}
-                              onMouseLeave={() => setHoveredCompetency(null)}
-                            >
-                              {competency.shortName}
-                            </span>
-                            <button
-                              className='ml-1 text-gray-400 hover:text-gray-600'
-                              onMouseEnter={e => {
-                                const rect =
-                                  e.currentTarget.getBoundingClientRect();
-                                setTooltipPosition({
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.bottom + 8,
-                                });
-                                setHoveredCompetency(competency);
-                              }}
-                              onMouseLeave={() => setHoveredCompetency(null)}
-                            >
-                              <Info className='w-3.5 h-3.5 inline' />
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                      <td className='text-center px-2 py-3'>
-                        {renderRadioButton(competency, 'I')}
-                      </td>
-                      <td className='text-center px-2 py-3'>
-                        {renderRadioButton(competency, 'R')}
-                      </td>
-                      <td className='text-center px-2 py-3'>
-                        {renderRadioButton(competency, 'M')}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        >
+                          <td className='px-4 py-3'>
+                            <div className='flex items-center gap-2'>
+                              <span className='text-lg'>{competency.icon}</span>
+                              <div>
+                                <span
+                                  className={`font-medium ${isUnmapped ? 'text-gray-500' : 'text-gray-900'}`}
+                                  onMouseEnter={e => {
+                                    const rect =
+                                      e.currentTarget.getBoundingClientRect();
+                                    setTooltipPosition({
+                                      x: rect.left + rect.width / 2,
+                                      y: rect.bottom + 8,
+                                    });
+                                    setHoveredCompetency(competency);
+                                  }}
+                                  onMouseLeave={() =>
+                                    setHoveredCompetency(null)
+                                  }
+                                >
+                                  {competency.shortName}
+                                </span>
+                                <button
+                                  className='ml-1 text-gray-400 hover:text-gray-600'
+                                  onMouseEnter={e => {
+                                    const rect =
+                                      e.currentTarget.getBoundingClientRect();
+                                    setTooltipPosition({
+                                      x: rect.left + rect.width / 2,
+                                      y: rect.bottom + 8,
+                                    });
+                                    setHoveredCompetency(competency);
+                                  }}
+                                  onMouseLeave={() =>
+                                    setHoveredCompetency(null)
+                                  }
+                                >
+                                  <Info className='w-3.5 h-3.5 inline' />
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className='text-center px-2 py-3'>
+                            {renderRadioButton(competency, 'I')}
+                          </td>
+                          <td className='text-center px-2 py-3'>
+                            {renderRadioButton(competency, 'R')}
+                          </td>
+                          <td className='text-center px-2 py-3'>
+                            {renderRadioButton(competency, 'M')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Legend */}
-          <div className='mt-4 flex items-center justify-between text-xs text-gray-500'>
-            <div className='flex items-center gap-4'>
-              <span className='flex items-center gap-1'>
-                <span className='w-6 h-6 rounded-full bg-blue-100 text-blue-800 border border-blue-300 flex items-center justify-center text-xs font-bold'>
-                  I
+              {/* Legend */}
+              <div className='mt-4 flex items-center justify-between text-xs text-gray-500'>
+                <div className='flex items-center gap-4'>
+                  <span className='flex items-center gap-1'>
+                    <span className='w-6 h-6 rounded-full bg-blue-100 text-blue-800 border border-blue-300 flex items-center justify-center text-xs font-bold'>
+                      I
+                    </span>
+                    Introduce
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <span className='w-6 h-6 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 flex items-center justify-center text-xs font-bold'>
+                      R
+                    </span>
+                    Reinforce
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <span className='w-6 h-6 rounded-full bg-green-100 text-green-800 border border-green-300 flex items-center justify-center text-xs font-bold'>
+                      M
+                    </span>
+                    Master
+                  </span>
+                </div>
+                <span className='text-gray-400'>
+                  Click to select level, click again to clear
                 </span>
-                Introduce
-              </span>
-              <span className='flex items-center gap-1'>
-                <span className='w-6 h-6 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300 flex items-center justify-center text-xs font-bold'>
-                  R
-                </span>
-                Reinforce
-              </span>
-              <span className='flex items-center gap-1'>
-                <span className='w-6 h-6 rounded-full bg-green-100 text-green-800 border border-green-300 flex items-center justify-center text-xs font-bold'>
-                  M
-                </span>
-                Master
-              </span>
-            </div>
-            <span className='text-gray-400'>
-              Click to select level, click again to clear
-            </span>
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
