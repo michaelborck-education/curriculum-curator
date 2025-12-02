@@ -9,12 +9,14 @@ import {
   Trash2,
   ArrowLeft,
   Sparkles,
+  GitBranch,
 } from 'lucide-react';
 import { getUnit, deleteUnit as deleteUnitApi } from '../services/api';
 import ULOManager from '../components/UnitStructure/ULOManager';
-import { WeeklyMaterialsManager } from '../components/UnitStructure/WeeklyMaterialsManager';
 import { AssessmentsManager } from '../components/UnitStructure/AssessmentsManager';
 import CoursePlanner from '../components/UnitStructure/CoursePlanner';
+import WeekAccordion from '../components/UnitStructure/WeekAccordion';
+import LearningOutcomeMap from '../components/UnitStructure/LearningOutcomeMap';
 import type { Unit } from '../types';
 import { LoadingState, Button, Modal, Alert } from '../components/ui';
 import toast from 'react-hot-toast';
@@ -32,10 +34,12 @@ const UnitPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
+  const [showOutcomeMap, setShowOutcomeMap] = useState(false);
+  const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
 
   // Get active tab and week from URL
   const activeTab = (searchParams.get('tab') as TabType) || 'structure';
-  const selectedWeek = parseInt(searchParams.get('week') || '1', 10);
+  const selectedWeek = parseInt(searchParams.get('week') || '0', 10);
 
   const setActiveTab = (tab: TabType) => {
     const params = new URLSearchParams(searchParams);
@@ -44,6 +48,35 @@ const UnitPage = () => {
       params.delete('week');
     }
     setSearchParams(params);
+  };
+
+  // Sync expanded week with URL param
+  useEffect(() => {
+    if (selectedWeek > 0) {
+      setExpandedWeek(selectedWeek);
+    }
+  }, [selectedWeek]);
+
+  const handleWeekToggle = (weekNumber: number) => {
+    if (expandedWeek === weekNumber) {
+      setExpandedWeek(null);
+      // Clear week from URL
+      const params = new URLSearchParams(searchParams);
+      params.delete('week');
+      setSearchParams(params);
+    } else {
+      setExpandedWeek(weekNumber);
+      // Update URL with week
+      const params = new URLSearchParams(searchParams);
+      params.set('tab', 'structure');
+      params.set('week', String(weekNumber));
+      setSearchParams(params);
+    }
+  };
+
+  const handleAddMaterial = (weekNumber: number) => {
+    // Navigate to content creator with week pre-selected
+    navigate(`/content/create?unitId=${unitId}&week=${weekNumber}`);
   };
 
   const fetchUnit = useCallback(async () => {
@@ -215,31 +248,64 @@ const UnitPage = () => {
       <div className='p-6'>
         {activeTab === 'structure' && (
           <div>
-            {/* Course Planner Toggle */}
-            <div className='flex justify-end mb-4'>
-              <Button
-                variant={showPlanner ? 'primary' : 'secondary'}
-                size='sm'
-                onClick={() => setShowPlanner(!showPlanner)}
-              >
-                <Sparkles className='w-4 h-4 mr-1' />
-                {showPlanner ? 'Close Planner' : 'Open Course Planner'}
-              </Button>
+            {/* Action Bar */}
+            <div className='flex items-center justify-between mb-6'>
+              <div>
+                <h2 className='text-lg font-semibold text-gray-900'>
+                  Weekly Content
+                </h2>
+                <p className='text-sm text-gray-500'>
+                  Click on a week to view and manage materials
+                </p>
+              </div>
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='secondary'
+                  size='sm'
+                  onClick={() => setShowOutcomeMap(true)}
+                >
+                  <GitBranch className='w-4 h-4 mr-1' />
+                  View Map
+                </Button>
+                <Button
+                  variant={showPlanner ? 'primary' : 'secondary'}
+                  size='sm'
+                  onClick={() => setShowPlanner(!showPlanner)}
+                >
+                  <Sparkles className='w-4 h-4 mr-1' />
+                  {showPlanner ? 'Close Planner' : 'Course Planner'}
+                </Button>
+              </div>
             </div>
 
             {/* Course Planner */}
             {showPlanner && unit && (
-              <CoursePlanner
-                unit={unit}
-                onApplySchedule={() => {
-                  // TODO: Apply the generated schedule to the unit
-                  setShowPlanner(false);
-                }}
-                onClose={() => setShowPlanner(false)}
-              />
+              <div className='mb-6'>
+                <CoursePlanner
+                  unit={unit}
+                  onApplySchedule={() => {
+                    setShowPlanner(false);
+                  }}
+                  onClose={() => setShowPlanner(false)}
+                />
+              </div>
             )}
 
-            <StructureTab unitId={unitId!} selectedWeek={selectedWeek} />
+            {/* Week Accordion */}
+            <WeekAccordion
+              unitId={unitId!}
+              durationWeeks={durationWeeks}
+              expandedWeek={expandedWeek}
+              onWeekToggle={handleWeekToggle}
+              onAddMaterial={handleAddMaterial}
+            />
+
+            {/* Learning Outcome Map Modal */}
+            <LearningOutcomeMap
+              unitId={unitId!}
+              isOpen={showOutcomeMap}
+              onClose={() => setShowOutcomeMap(false)}
+            />
           </div>
         )}
 
@@ -297,20 +363,6 @@ const UnitPage = () => {
           </div>
         </div>
       </Modal>
-    </div>
-  );
-};
-
-// Structure Tab Component
-interface StructureTabProps {
-  unitId: string;
-  selectedWeek: number;
-}
-
-const StructureTab = ({ unitId, selectedWeek }: StructureTabProps) => {
-  return (
-    <div>
-      <WeeklyMaterialsManager unitId={unitId} weekNumber={selectedWeek} />
     </div>
   );
 };
