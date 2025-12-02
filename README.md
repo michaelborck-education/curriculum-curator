@@ -6,6 +6,8 @@
 ![Node](https://img.shields.io/badge/node-18%2B-green)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
+[![DeepWiki](https://img.shields.io/badge/DeepWiki-Interactive%20Docs-blue)](https://deepwiki.com/michaelborck-education/curriculum-curator)
+
 ## Overview
 
 Curriculum Curator is an AI-powered platform designed to help educators create and manage course content. By aligning with different pedagogical philosophies and leveraging LLMs, it helps teachers generate high-quality, pedagogically-sound educational materials.
@@ -18,6 +20,8 @@ Curriculum Curator is an AI-powered platform designed to help educators create a
 - **AI-Powered Content**: Generation, enhancement, and validation using multiple LLM providers (OpenAI, Anthropic, Ollama)
 - **Multi-Scale Workflows**: Create 12-week unit structures, weekly modules, or individual materials
 - **Rich Text Editing**: TipTap-based editor with tables, code blocks, and formatting
+- **Accreditation Support**: Graduate Capabilities (Curtin GC1-GC6) and AACSB Assurance of Learning (AoL) mapping
+- **Learning Outcome Hierarchy**: Visual mapping from Unit Learning Outcomes to weekly materials
 - **Plugin System**: Extensible validators and remediators for content quality (planned)
 
 ## Tech Stack
@@ -42,7 +46,7 @@ Curriculum Curator is an AI-powered platform designed to help educators create a
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/curriculum-curator.git
+git clone https://github.com/michaelborck-education/curriculum-curator.git
 cd curriculum-curator
 
 # Start backend (handles venv, deps, and server)
@@ -84,6 +88,7 @@ curriculum-curator/
 │       ├── components/      # Reusable UI components
 │       ├── features/        # Feature modules (auth, units, content)
 │       ├── services/        # API integration
+│       ├── stores/          # Zustand state management
 │       └── hooks/           # Custom React hooks
 ├── docs/                    # Documentation
 ├── scripts/                 # Utility scripts
@@ -149,6 +154,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ## Documentation
 
+- [DeepWiki - Interactive Knowledge Base](https://deepwiki.com/michaelborck-education/curriculum-curator) - AI-powered wiki for exploring the codebase
 - [Getting Started](docs/guides/getting-started.md)
 - [Architecture](docs/concepts/architecture.md)
 - [Development Guide](docs/development/DEVELOPMENT_GUIDE.md)
