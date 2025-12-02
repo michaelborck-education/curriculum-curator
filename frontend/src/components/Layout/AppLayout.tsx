@@ -50,7 +50,6 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
   const { globalStyle, setGlobalStyle } = useTeachingStyleStore();
   const logout = onLogout || authStoreLogout;
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [units, setUnits] = useState<Unit[]>([]);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
@@ -122,7 +121,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0 transition-all duration-300 
           fixed lg:static inset-y-0 left-0 z-50 
-          ${sidebarOpen ? 'w-72' : 'w-16'} 
+          w-72
           bg-gray-900 text-white flex flex-col
         `}
       >
@@ -134,11 +133,9 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
               onClick={() => navigate('/')}
             >
               <GraduationCap className='w-8 h-8 text-purple-400 flex-shrink-0' />
-              {sidebarOpen && (
-                <span className='text-lg font-bold truncate'>
-                  Curriculum Curator
-                </span>
-              )}
+              <span className='text-lg font-bold truncate'>
+                Curriculum Curator
+              </span>
             </div>
             <button
               onClick={() => setMobileSidebarOpen(false)}
@@ -164,36 +161,32 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
             }`}
           >
             <Home className='w-5 h-5 flex-shrink-0' />
-            {sidebarOpen && <span>Dashboard</span>}
+            <span>Dashboard</span>
           </button>
 
           {/* Units Section */}
-          {sidebarOpen && (
-            <div className='mt-6 px-4'>
-              <div className='flex items-center justify-between mb-2'>
-                <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
-                  My Units
-                </span>
-                <button
-                  onClick={() => navigate('/units/new')}
-                  className='p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded'
-                  title='Create New Unit'
-                >
-                  <Plus className='w-4 h-4' />
-                </button>
-              </div>
+          <div className='mt-6 px-4'>
+            <div className='flex items-center justify-between mb-2'>
+              <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                My Units
+              </span>
+              <button
+                onClick={() => navigate('/units/new')}
+                className='p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded'
+                title='Create New Unit'
+              >
+                <Plus className='w-4 h-4' />
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Units Tree */}
           <div className='mt-2'>
             {loading ? (
-              <div className='px-4 py-2 text-gray-500 text-sm'>
-                {sidebarOpen ? 'Loading...' : '...'}
-              </div>
+              <div className='px-4 py-2 text-gray-500 text-sm'>Loading...</div>
             ) : units.length === 0 ? (
               <div className='px-4 py-2 text-gray-500 text-sm'>
-                {sidebarOpen ? 'No units yet' : '-'}
+                No units yet
               </div>
             ) : (
               units.map(unit => (
@@ -206,24 +199,22 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
                         : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                     }`}
                   >
-                    {sidebarOpen && (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          toggleUnitExpand(unit.id);
-                        }}
-                        className='p-0.5 hover:bg-gray-700 rounded'
-                      >
-                        {expandedUnits.has(unit.id) ? (
-                          <ChevronDown className='w-4 h-4' />
-                        ) : (
-                          <ChevronRight className='w-4 h-4' />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleUnitExpand(unit.id);
+                      }}
+                      className='p-0.5 hover:bg-gray-700 rounded'
+                    >
+                      {expandedUnits.has(unit.id) ? (
+                        <ChevronDown className='w-4 h-4' />
+                      ) : (
+                        <ChevronRight className='w-4 h-4' />
+                      )}
+                    </button>
                     <BookOpen className='w-4 h-4 flex-shrink-0' />
                     <span
-                      className={`flex-1 truncate ${sidebarOpen ? '' : 'hidden'}`}
+                      className='flex-1 truncate'
                       onClick={() => {
                         navigate(`/units/${unit.id}`);
                         setMobileSidebarOpen(false);
@@ -232,18 +223,10 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
                     >
                       {unit.code}
                     </span>
-                    {!sidebarOpen && (
-                      <span
-                        className='sr-only'
-                        onClick={() => navigate(`/units/${unit.id}`)}
-                      >
-                        {unit.code}
-                      </span>
-                    )}
                   </div>
 
                   {/* Unit Children (Weeks) */}
-                  {sidebarOpen && expandedUnits.has(unit.id) && (
+                  {expandedUnits.has(unit.id) && (
                     <div className='ml-6 border-l border-gray-700'>
                       {/* Quick Links */}
                       <button
@@ -324,13 +307,11 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
 
           {/* Tools Section */}
           <div className='mt-6 border-t border-gray-800 pt-4'>
-            {sidebarOpen && (
-              <div className='px-4 mb-2'>
-                <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
-                  Tools
-                </span>
-              </div>
-            )}
+            <div className='px-4 mb-2'>
+              <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                Tools
+              </span>
+            </div>
             <button
               onClick={() => {
                 navigate('/import');
@@ -343,7 +324,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
               }`}
             >
               <Upload className='w-5 h-5 flex-shrink-0' />
-              {sidebarOpen && <span>Import Materials</span>}
+              <span>Import Materials</span>
             </button>
             <button
               onClick={() => {
@@ -357,7 +338,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
               }`}
             >
               <Brain className='w-5 h-5 flex-shrink-0' />
-              {sidebarOpen && <span>AI Assistant</span>}
+              <span>AI Assistant</span>
             </button>
           </div>
         </nav>
@@ -376,28 +357,16 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
             }`}
           >
             <Settings className='w-5 h-5 flex-shrink-0' />
-            {sidebarOpen && <span>Settings</span>}
+            <span>Settings</span>
           </button>
           <button
             onClick={logout}
             className='w-full flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition mt-1'
           >
             <LogOut className='w-5 h-5 flex-shrink-0' />
-            {sidebarOpen && <span>Sign Out</span>}
+            <span>Sign Out</span>
           </button>
         </div>
-
-        {/* Collapse Toggle (Desktop only) */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className='hidden lg:flex items-center justify-center p-2 border-t border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition'
-        >
-          {sidebarOpen ? (
-            <ChevronRight className='w-5 h-5 rotate-180' />
-          ) : (
-            <ChevronRight className='w-5 h-5' />
-          )}
-        </button>
       </div>
 
       {/* Main Content Area */}

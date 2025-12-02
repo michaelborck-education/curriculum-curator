@@ -46,13 +46,6 @@ const UnitPage = () => {
     setSearchParams(params);
   };
 
-  const setSelectedWeek = (week: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', 'structure');
-    params.set('week', String(week));
-    setSearchParams(params);
-  };
-
   const fetchUnit = useCallback(async () => {
     if (!unitId) return;
     try {
@@ -246,12 +239,7 @@ const UnitPage = () => {
               />
             )}
 
-            <StructureTab
-              unitId={unitId!}
-              durationWeeks={durationWeeks}
-              selectedWeek={selectedWeek}
-              onWeekSelect={setSelectedWeek}
-            />
+            <StructureTab unitId={unitId!} selectedWeek={selectedWeek} />
           </div>
         )}
 
@@ -316,47 +304,13 @@ const UnitPage = () => {
 // Structure Tab Component
 interface StructureTabProps {
   unitId: string;
-  durationWeeks: number;
   selectedWeek: number;
-  onWeekSelect: (week: number) => void;
 }
 
-const StructureTab = ({
-  unitId,
-  durationWeeks,
-  selectedWeek,
-  onWeekSelect,
-}: StructureTabProps) => {
-  const weeks = Array.from({ length: durationWeeks }, (_, i) => i + 1);
-
+const StructureTab = ({ unitId, selectedWeek }: StructureTabProps) => {
   return (
-    <div className='flex gap-6'>
-      {/* Week Selector - Left Panel */}
-      <div className='w-48 flex-shrink-0'>
-        <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-4'>
-          <h3 className='text-sm font-semibold text-gray-700 mb-3'>Weeks</h3>
-          <div className='space-y-1'>
-            {weeks.map(week => (
-              <button
-                key={week}
-                onClick={() => onWeekSelect(week)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition ${
-                  selectedWeek === week
-                    ? 'bg-purple-100 text-purple-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Week {week}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Week Content - Main Panel */}
-      <div className='flex-1'>
-        <WeeklyMaterialsManager unitId={unitId} weekNumber={selectedWeek} />
-      </div>
+    <div>
+      <WeeklyMaterialsManager unitId={unitId} weekNumber={selectedWeek} />
     </div>
   );
 };
