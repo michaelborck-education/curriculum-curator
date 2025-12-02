@@ -8,6 +8,8 @@ import {
   FileText,
   Loader2,
   AlertCircle,
+  Info,
+  Sparkles,
 } from 'lucide-react';
 import {
   learningOutcomesApi,
@@ -17,6 +19,10 @@ import {
   ULOWithMappings,
   MaterialWithOutcomes,
 } from '../../types/unitStructure';
+import {
+  GraduateCapability,
+  getTopCapabilitySuggestions,
+} from '../../constants/graduateCapabilities';
 
 interface LearningOutcomeMapProps {
   unitId: string;
@@ -32,6 +38,7 @@ interface TreeNode {
   children: TreeNode[];
   isExpanded?: boolean;
   metadata?: Record<string, unknown>;
+  suggestedCapabilities?: GraduateCapability[];
 }
 
 const BLOOM_COLORS: Record<string, string> = {
@@ -52,6 +59,9 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [hoveredCapability, setHoveredCapability] =
+    useState<GraduateCapability | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const loadData = async () => {
     setLoading(true);
@@ -154,6 +164,13 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
           });
         });
 
+      // Get AI-suggested capabilities based on ULO description and Bloom level
+      const suggestedCapabilities = getTopCapabilitySuggestions(
+        ulo.description,
+        ulo.bloomLevel,
+        2
+      );
+
       return {
         id: `ulo-${ulo.id}`,
         type: 'ulo' as const,
@@ -165,6 +182,7 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
           materialCount: ulo.materialCount,
           assessmentCount: ulo.assessmentCount,
         },
+        suggestedCapabilities,
       };
     });
   };
@@ -246,6 +264,32 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
                   {String(node.metadata.bloomLevel)}
                 </span>
               ) : null}
+
+              {/* Graduate Capability badges for ULOs */}
+              {node.type === 'ulo' &&
+                node.suggestedCapabilities &&
+                node.suggestedCapabilities.length > 0 && (
+                  <div className='flex items-center gap-1 ml-1'>
+                    <Sparkles className='w-3 h-3 text-amber-500' />
+                    {node.suggestedCapabilities.map(gc => (
+                      <span
+                        key={gc.id}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border cursor-help ${gc.color}`}
+                        onMouseEnter={e => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTooltipPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.bottom + 8,
+                          });
+                          setHoveredCapability(gc);
+                        }}
+                        onMouseLeave={() => setHoveredCapability(null)}
+                      >
+                        {gc.icon} {gc.code}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
               {/* Material type badge */}
               {node.type === 'material' && node.sublabel ? (
@@ -351,7 +395,8 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
 
           {/* Footer */}
           <div className='px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl'>
-            <div className='flex items-center justify-between'>
+            <div className='flex flex-col gap-3'>
+              {/* Tree legend */}
               <div className='flex items-center gap-4 text-xs text-gray-500'>
                 <span className='flex items-center gap-1'>
                   <Target className='w-3 h-3 text-purple-600' />
@@ -370,16 +415,85 @@ export const LearningOutcomeMap: React.FC<LearningOutcomeMapProps> = ({
                   Local Outcome
                 </span>
               </div>
-              <button
-                onClick={onClose}
-                className='px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition'
-              >
-                Close
-              </button>
+
+              {/* Graduate Capabilities legend */}
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-2 text-xs text-gray-500'>
+                  <Sparkles className='w-3 h-3 text-amber-500' />
+                  <span className='font-medium text-gray-600'>
+                    AI-Suggested Graduate Capabilities:
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <span className='px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-300'>
+                      GC1
+                    </span>
+                    Apply
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <span className='px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 border border-yellow-300'>
+                      GC2
+                    </span>
+                    Innovate
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <span className='px-1.5 py-0.5 rounded bg-green-100 text-green-800 border border-green-300'>
+                      GC3
+                    </span>
+                    Communicate
+                  </span>
+                  <button
+                    className='ml-1 p-0.5 text-gray-400 hover:text-gray-600'
+                    title='View all Graduate Capabilities'
+                  >
+                    <Info className='w-3.5 h-3.5' />
+                  </button>
+                </div>
+                <button
+                  onClick={onClose}
+                  className='px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition'
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Capability Tooltip */}
+      {hoveredCapability && (
+        <div
+          className='fixed z-[60] bg-white rounded-lg shadow-xl border border-gray-200 p-4 max-w-sm'
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className='flex items-center gap-2 mb-2'>
+            <span className='text-2xl'>{hoveredCapability.icon}</span>
+            <div>
+              <span
+                className={`px-2 py-0.5 rounded text-xs font-bold ${hoveredCapability.color}`}
+              >
+                {hoveredCapability.code}
+              </span>
+              <h4 className='font-semibold text-gray-900 mt-1'>
+                {hoveredCapability.name}
+              </h4>
+            </div>
+          </div>
+          <p className='text-sm text-gray-600 leading-relaxed'>
+            {hoveredCapability.description}
+          </p>
+          <div className='mt-2 pt-2 border-t border-gray-100'>
+            <p className='text-xs text-amber-600 flex items-center gap-1'>
+              <Sparkles className='w-3 h-3' />
+              AI-suggested based on outcome keywords
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
