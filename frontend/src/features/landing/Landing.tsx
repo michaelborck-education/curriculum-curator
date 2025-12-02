@@ -1,144 +1,159 @@
+import { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Target,
-  RotateCcw,
-  Bot,
   BookOpen,
-  Wand2,
-  Play,
+  Sparkles,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  Brain,
+  CheckCircle,
 } from 'lucide-react';
 import type { LandingProps } from '../../types/index';
 
 const Landing = ({ onSignInClick }: LandingProps) => {
+  // Carousel state
+  const [currentSlide, setCurrentSlide] = useState(0);
+
   const features = [
     {
+      icon: Brain,
+      title: 'AI-Powered Creation',
+      description:
+        'Generate pedagogically-aligned content with AI that understands your teaching style.',
+    },
+    {
       icon: Target,
-      title: '9 Teaching Philosophies',
+      title: '9 Teaching Styles',
       description:
-        'Choose from Traditional, Inquiry-Based, Project-Based, and more. Our AI adapts to your unique teaching style.',
-    },
-    {
-      icon: RotateCcw,
-      title: 'Multi-Scale Workflows',
-      description:
-        'Start from a full syllabus or focus on a single worksheet. Work at the scale that suits your needs.',
-    },
-    {
-      icon: Bot,
-      title: 'AI Enhancement',
-      description:
-        'Intelligent suggestions for content improvement, alignment checks, and automated quality validation.',
+        'From Traditional to Inquiry-Based - choose the approach that fits your philosophy.',
     },
     {
       icon: BookOpen,
-      title: 'Import & Enhance',
+      title: 'Unit Structure',
       description:
-        'Bring your existing materials. Support for DOCX, PPTX, Markdown, and more with smart remediation.',
+        'Plan 12-week units with learning outcomes, weekly materials, and assessments.',
     },
     {
-      icon: Wand2,
-      title: 'Dual Interface',
+      icon: Upload,
+      title: 'Import & Enhance',
       description:
-        'Wizard mode for guided creation or Expert mode for power users. Choose your comfort level.',
+        'Bring existing materials and let AI help improve and align them.',
+    },
+    {
+      icon: CheckCircle,
+      title: 'Accreditation Ready',
+      description:
+        'Map to Graduate Capabilities and AACSB Assurance of Learning standards.',
     },
   ];
 
+  const highlights = [
+    {
+      title: 'Start with Your Style',
+      description:
+        'Take a quick quiz to discover your teaching philosophy, or choose manually. The AI adapts to generate content that matches your approach.',
+      image: '🎯',
+    },
+    {
+      title: 'Build Your Unit',
+      description:
+        'Create unit learning outcomes, plan your 12-week structure, add materials week by week, and design assessments - all in one place.',
+      image: '📚',
+    },
+    {
+      title: 'Let AI Help',
+      description:
+        'Generate content, enhance existing materials, or get suggestions. AI assistance is always optional - you stay in control.',
+      image: '✨',
+    },
+    {
+      title: 'Track Alignment',
+      description:
+        'Visual hierarchy maps show how outcomes connect to materials. Graduate Capability and AoL mappings support accreditation.',
+      image: '🗺️',
+    },
+  ];
+
+  // Auto-advance carousel
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % highlights.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [highlights.length]);
+
+  const nextSlide = () => {
+    setCurrentSlide(prev => (prev + 1) % highlights.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide(prev => (prev - 1 + highlights.length) % highlights.length);
+  };
+
   return (
     <div className='min-h-screen bg-white'>
-      {/* Navigation */}
-      <nav className='bg-white px-8 py-6 flex justify-between items-center border-b border-gray-100'>
-        <div className='flex items-center gap-3'>
-          <GraduationCap className='w-8 h-8 text-purple-600' />
-          <span className='text-xl font-bold text-gray-900'>
+      {/* Simple Navigation */}
+      <nav className='bg-white px-6 md:px-8 py-4 flex justify-between items-center border-b border-gray-100'>
+        <div className='flex items-center gap-2'>
+          <GraduationCap className='w-7 h-7 text-purple-600' />
+          <span className='text-lg font-bold text-gray-900'>
             Curriculum Curator
           </span>
         </div>
-        <div className='flex items-center gap-8'>
-          <a
-            href='#features'
-            className='text-gray-600 hover:text-gray-900 font-medium'
-          >
-            Features
-          </a>
-          <a
-            href='#pedagogies'
-            className='text-gray-600 hover:text-gray-900 font-medium'
-          >
-            Pedagogies
-          </a>
-          <a
-            href='#about'
-            className='text-gray-600 hover:text-gray-900 font-medium'
-          >
-            About
-          </a>
-          <button
-            onClick={onSignInClick}
-            className='bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium'
-          >
-            Sign In
-          </button>
-        </div>
+        <button
+          onClick={onSignInClick}
+          className='bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm'
+        >
+          Sign In
+        </button>
       </nav>
 
       {/* Hero Section */}
-      <section className='bg-gradient-to-br from-purple-50 to-indigo-50 px-8 py-20'>
-        <div className='max-w-6xl mx-auto text-center'>
-          <h1 className='text-5xl font-bold text-gray-900 mb-6 leading-tight'>
+      <section className='bg-gradient-to-br from-purple-50 via-white to-indigo-50 px-6 md:px-8 py-16 md:py-24'>
+        <div className='max-w-4xl mx-auto text-center'>
+          <h1 className='text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight'>
             Create Unit Content
             <br />
             <span className='text-purple-600'>That Teaches Your Way</span>
           </h1>
-          <p className='text-xl text-gray-600 mb-8 max-w-3xl mx-auto'>
-            AI-powered platform that aligns with your teaching philosophy. From
-            high-level syllabi to individual worksheets, create and curate
-            content that resonates with your pedagogical approach.
+          <p className='text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto'>
+            An AI-powered platform for educators. Build pedagogically-aligned
+            units with learning outcomes, weekly materials, and assessments.
           </p>
-          <div className='flex gap-4 justify-center'>
-            <button
-              onClick={onSignInClick}
-              className='bg-purple-600 text-white px-8 py-4 rounded-lg hover:bg-purple-700 transition-colors font-semibold text-lg flex items-center gap-2'
-            >
-              Get Started
-              <ArrowRight className='w-5 h-5' />
-            </button>
-            <button className='border border-gray-300 text-gray-700 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-lg flex items-center gap-2'>
-              <Play className='w-5 h-5' />
-              Watch Demo
-            </button>
-          </div>
+          <button
+            onClick={onSignInClick}
+            className='bg-purple-600 text-white px-8 py-4 rounded-lg hover:bg-purple-700 transition-colors font-semibold text-lg inline-flex items-center gap-2 shadow-lg shadow-purple-200'
+          >
+            Get Started
+            <ArrowRight className='w-5 h-5' />
+          </button>
+          <p className='mt-4 text-sm text-gray-500'>
+            Free for educators. No credit card required.
+          </p>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id='features' className='px-8 py-20 bg-white'>
-        <div className='max-w-6xl mx-auto'>
-          <div className='text-center mb-16'>
-            <h2 className='text-3xl font-bold text-gray-900 mb-4'>
-              Everything You Need for Pedagogically-Aware Content Creation
-            </h2>
-            <p className='text-gray-600 text-lg max-w-2xl mx-auto'>
-              Our platform adapts to your teaching style, whether you&apos;re a
-              traditionalist or an innovator.
-            </p>
-          </div>
-
-          <div className='grid md:grid-cols-2 lg:grid-cols-3 gap-8'>
+      {/* Feature Cards */}
+      <section className='px-6 md:px-8 py-16 bg-white'>
+        <div className='max-w-5xl mx-auto'>
+          <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-6'>
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
                 <div
                   key={index}
-                  className='p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors'
+                  className='p-5 bg-gray-50 rounded-xl hover:bg-purple-50 transition-colors group'
                 >
-                  <div className='w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4'>
-                    <Icon className='w-6 h-6 text-purple-600' />
+                  <div className='w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors'>
+                    <Icon className='w-5 h-5 text-purple-600' />
                   </div>
-                  <h3 className='text-xl font-semibold text-gray-900 mb-3'>
+                  <h3 className='text-lg font-semibold text-gray-900 mb-2'>
                     {feature.title}
                   </h3>
-                  <p className='text-gray-600'>{feature.description}</p>
+                  <p className='text-gray-600 text-sm'>{feature.description}</p>
                 </div>
               );
             })}
@@ -146,104 +161,90 @@ const Landing = ({ onSignInClick }: LandingProps) => {
         </div>
       </section>
 
-      {/* Pedagogies Section */}
-      <section id='pedagogies' className='px-8 py-20 bg-gray-50'>
-        <div className='max-w-6xl mx-auto'>
-          <div className='text-center mb-16'>
-            <h2 className='text-3xl font-bold text-gray-900 mb-4'>
-              Nine Teaching Philosophies Supported
-            </h2>
-            <p className='text-gray-600 text-lg max-w-2xl mx-auto'>
-              Our AI understands different pedagogical approaches and tailors
-              content generation accordingly.
-            </p>
-          </div>
+      {/* How It Works - Carousel */}
+      <section className='px-6 md:px-8 py-16 bg-gray-50'>
+        <div className='max-w-4xl mx-auto'>
+          <h2 className='text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center'>
+            How It Works
+          </h2>
 
-          <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-6'>
-            {[
-              'Traditional',
-              'Inquiry-Based',
-              'Project-Based',
-              'Collaborative',
-              'Game-Based',
-              'Constructivist',
-              'Problem-Based',
-              'Experiential',
-              'Competency-Based',
-            ].map((pedagogy, index) => (
-              <div
-                key={index}
-                className='bg-white p-6 rounded-lg shadow-sm border border-gray-100'
-              >
-                <h4 className='font-semibold text-gray-900 mb-2'>{pedagogy}</h4>
-                <p className='text-gray-600 text-sm'>
-                  Tailored content generation that aligns with{' '}
-                  {pedagogy.toLowerCase()} teaching methods.
-                </p>
+          <div className='relative bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-12'>
+            {/* Carousel Content */}
+            <div className='text-center'>
+              <div className='text-6xl mb-6'>
+                {highlights[currentSlide].image}
               </div>
-            ))}
+              <h3 className='text-xl font-semibold text-gray-900 mb-3'>
+                {highlights[currentSlide].title}
+              </h3>
+              <p className='text-gray-600 max-w-lg mx-auto'>
+                {highlights[currentSlide].description}
+              </p>
+            </div>
+
+            {/* Navigation Arrows */}
+            <button
+              onClick={prevSlide}
+              className='absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition'
+            >
+              <ChevronLeft className='w-6 h-6' />
+            </button>
+            <button
+              onClick={nextSlide}
+              className='absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition'
+            >
+              <ChevronRight className='w-6 h-6' />
+            </button>
+
+            {/* Dots */}
+            <div className='flex justify-center gap-2 mt-8'>
+              {highlights.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    index === currentSlide ? 'bg-purple-600' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className='px-8 py-20 bg-purple-600'>
-        <div className='max-w-4xl mx-auto text-center text-white'>
-          <h2 className='text-3xl font-bold mb-4'>
-            Ready to Transform Your Content Creation?
+      <section className='px-6 md:px-8 py-16 bg-purple-600'>
+        <div className='max-w-3xl mx-auto text-center text-white'>
+          <Sparkles className='w-10 h-10 mx-auto mb-4 opacity-80' />
+          <h2 className='text-2xl md:text-3xl font-bold mb-4'>
+            Ready to Create Better Unit Content?
           </h2>
-          <p className='text-xl opacity-90 mb-8'>
-            Join educators who are already creating better unit materials with
-            AI assistance.
+          <p className='text-lg opacity-90 mb-8'>
+            Join educators using AI to build pedagogically-aligned materials.
           </p>
           <button
             onClick={onSignInClick}
             className='bg-white text-purple-600 px-8 py-4 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-lg inline-flex items-center gap-2'
           >
-            Access Platform
+            Get Started Free
             <ArrowRight className='w-5 h-5' />
           </button>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer id='about' className='px-8 py-12 bg-gray-900 text-gray-300'>
-        <div className='max-w-6xl mx-auto'>
-          <div className='flex items-center gap-3 mb-6'>
-            <GraduationCap className='w-6 h-6 text-purple-400' />
-            <span className='text-lg font-bold text-white'>
+      {/* Simple Footer */}
+      <footer className='px-6 md:px-8 py-8 bg-gray-900 text-gray-400'>
+        <div className='max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4'>
+          <div className='flex items-center gap-2'>
+            <GraduationCap className='w-5 h-5 text-purple-400' />
+            <span className='text-sm font-medium text-white'>
               Curriculum Curator
             </span>
           </div>
-          <div className='grid md:grid-cols-3 gap-8'>
-            <div>
-              <h4 className='font-semibold text-white mb-3'>Platform</h4>
-              <div className='space-y-2'>
-                <p>AI-powered content creation</p>
-                <p>Multiple pedagogical approaches</p>
-                <p>Import and enhance existing materials</p>
-              </div>
-            </div>
-            <div>
-              <h4 className='font-semibold text-white mb-3'>For Educators</h4>
-              <div className='space-y-2'>
-                <p>Lecturers and professors</p>
-                <p>Instructional designers</p>
-                <p>Training organizations</p>
-              </div>
-            </div>
-            <div>
-              <h4 className='font-semibold text-white mb-3'>About</h4>
-              <div className='space-y-2'>
-                <p>Built by educators, for educators</p>
-                <p>Modern tech stack</p>
-                <p>Open source approach</p>
-              </div>
-            </div>
-          </div>
-          <div className='border-t border-gray-800 mt-8 pt-8 text-center text-sm'>
-            <p>&copy; 2025 Curriculum Curator. Made with ❤️ for educators.</p>
-          </div>
+          <p className='text-sm'>
+            Built by educators, for educators. Open source.
+          </p>
+          <p className='text-sm'>&copy; 2025</p>
         </div>
       </footer>
     </div>
