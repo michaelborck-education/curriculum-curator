@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   GraduationCap,
@@ -23,8 +23,8 @@ import {
   useTeachingStyleStore,
   pedagogyOptions,
 } from '../../stores/teachingStyleStore';
-import { getUnits } from '../../services/api';
-import type { Unit, PedagogyType } from '../../types';
+import { useUnitsStore } from '../../stores/unitsStore';
+import type { PedagogyType } from '../../types';
 
 interface AppLayoutProps {
   onLogout?: () => void;
@@ -51,25 +51,14 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
   const logout = onLogout || authStoreLogout;
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [units, setUnits] = useState<Unit[]>([]);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
+
+  // Use shared units store
+  const { units, loading, fetchUnits } = useUnitsStore();
 
   // Get current unit ID from URL
   const currentUnitId = location.pathname.match(/\/units\/([^/]+)/)?.[1];
-
-  const fetchUnits = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await getUnits();
-      setUnits(response.data?.units ?? []);
-    } catch {
-      // Handle error silently
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     fetchUnits();

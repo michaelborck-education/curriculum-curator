@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -12,9 +12,9 @@ import {
 } from 'lucide-react';
 import {
   createUnit as createUnitApi,
-  getUnits as getUnitsApi,
   deleteUnit as deleteUnitApi,
 } from '../services/api';
+import { useUnitsStore } from '../stores/unitsStore';
 import {
   Modal,
   Alert,
@@ -26,7 +26,7 @@ import {
   FormSelect,
 } from '../components/ui';
 import { useModal } from '../hooks';
-import type { Unit } from '../types';
+
 import toast from 'react-hot-toast';
 
 interface UnitFormData {
@@ -86,23 +86,12 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const createModal = useModal();
 
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use shared units store
+  const { units, loading, fetchUnits, addUnit, removeUnit } = useUnitsStore();
+
   const [newUnit, setNewUnit] = useState<UnitFormData>(initialFormData);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-
-  const fetchUnits = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await getUnitsApi();
-      setUnits(response.data?.units ?? []);
-    } catch {
-      // Handle error silently
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     fetchUnits();
@@ -137,6 +126,8 @@ const DashboardPage = () => {
       toast.success('Unit created successfully');
       createModal.close();
       resetForm();
+      // Add unit to store so sidebar updates immediately
+      addUnit(response.data);
       // Navigate to the new unit
       navigate(`/units/${response.data.id}`);
     } catch (err: unknown) {
@@ -221,7 +212,7 @@ const DashboardPage = () => {
     if (confirmed) {
       try {
         await deleteUnitApi(unitId);
-        setUnits(units.filter(c => c.id !== unitId));
+        removeUnit(unitId);
         toast.success('Unit deleted successfully');
       } catch {
         toast.error('Failed to delete unit');
