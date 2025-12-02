@@ -16,6 +16,7 @@ import {
   Brain,
   Home,
   Sparkles,
+  Upload,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import {
@@ -321,8 +322,29 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
             )}
           </div>
 
-          {/* AI Assistant */}
+          {/* Tools Section */}
           <div className='mt-6 border-t border-gray-800 pt-4'>
+            {sidebarOpen && (
+              <div className='px-4 mb-2'>
+                <span className='text-xs font-semibold text-gray-500 uppercase tracking-wider'>
+                  Tools
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                navigate('/import');
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${
+                isActive('/import')
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`}
+            >
+              <Upload className='w-5 h-5 flex-shrink-0' />
+              {sidebarOpen && <span>Import Materials</span>}
+            </button>
             <button
               onClick={() => {
                 navigate('/ai-assistant');

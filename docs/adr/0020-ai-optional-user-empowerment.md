@@ -34,14 +34,15 @@ AI should amplify educator expertise, not replace it. An educator with 20 years 
 
 **Guiding Principle**: AI features are always optional assistants, never gatekeepers. Every task achievable with AI must be equally achievable without it.
 
-### The Three Pathways Model
+### The Four Pathways Model
 
-For every content creation task, users have three equal pathways:
+For every content creation task, users have four equal pathways:
 
 | Pathway | Description | Use Case |
 |---------|-------------|----------|
 | **Manual** | Direct creation with rich text editor | Expert users, specific requirements, AI-restricted contexts |
 | **AI-Assisted** | Generate draft, then edit and refine | Starting point needed, time-constrained, exploring ideas |
+| **Import** | Upload existing files (PDF, DOCX, PPTX, etc.) | Migrating existing materials, digitising legacy content |
 | **Research-Informed** | Web search for examples, then create | Learning from peers, checking standards, gathering inspiration |
 
 ### Implementation Patterns
@@ -110,14 +111,14 @@ For every content creation task, users have three equal pathways:
 
 ### Feature Matrix
 
-| Feature | Manual | AI-Assisted | Research |
-|---------|--------|-------------|----------|
-| Create content | ✅ Rich text editor | ✅ Generate + edit | ✅ Search examples |
-| Plan schedule | ✅ Week-by-week form | ✅ AI schedule generator | ✅ Search similar courses |
-| Set learning outcomes | ✅ Direct entry | ✅ AI suggestions | ✅ Search standards |
-| Validate content | ✅ Self-review | ✅ AI validation | N/A |
-| Fix content issues | ✅ Manual edit | ✅ Auto-remediation | N/A |
-| Choose teaching style | ✅ Direct selection | ✅ Quiz recommendation | N/A |
+| Feature | Manual | AI-Assisted | Import | Research |
+|---------|--------|-------------|--------|----------|
+| Create content | ✅ Rich text editor | ✅ Generate + edit | ✅ Upload PDF/DOCX/PPTX | ✅ Search examples |
+| Plan schedule | ✅ Week-by-week form | ✅ AI schedule generator | N/A | ✅ Search similar courses |
+| Set learning outcomes | ✅ Direct entry | ✅ AI suggestions | ✅ Extract from docs | ✅ Search standards |
+| Validate content | ✅ Self-review | ✅ AI validation | ✅ Auto-analyse imports | N/A |
+| Fix content issues | ✅ Manual edit | ✅ Auto-remediation | N/A | N/A |
+| Choose teaching style | ✅ Direct selection | ✅ Quiz recommendation | N/A | N/A |
 
 ## Consequences
 
