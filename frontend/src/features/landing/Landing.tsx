@@ -130,39 +130,11 @@ const Landing = ({ onSignInClick }: LandingProps) => {
             Get Started
             <ArrowRight className='w-5 h-5' />
           </button>
-          <p className='mt-4 text-sm text-gray-500'>
-            Free for educators. No credit card required.
-          </p>
-        </div>
-      </section>
-
-      {/* Feature Cards */}
-      <section className='px-6 md:px-8 py-16 bg-white'>
-        <div className='max-w-5xl mx-auto'>
-          <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-6'>
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={index}
-                  className='p-5 bg-gray-50 rounded-xl hover:bg-purple-50 transition-colors group'
-                >
-                  <div className='w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors'>
-                    <Icon className='w-5 h-5 text-purple-600' />
-                  </div>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-2'>
-                    {feature.title}
-                  </h3>
-                  <p className='text-gray-600 text-sm'>{feature.description}</p>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </section>
 
       {/* How It Works - Carousel */}
-      <section className='px-6 md:px-8 py-16 bg-gray-50'>
+      <section className='px-6 md:px-8 py-16 bg-white'>
         <div className='max-w-4xl mx-auto'>
           <h2 className='text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center'>
             How It Works
@@ -208,6 +180,31 @@ const Landing = ({ onSignInClick }: LandingProps) => {
                 />
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Cards */}
+      <section className='px-6 md:px-8 py-16 bg-gray-50'>
+        <div className='max-w-5xl mx-auto'>
+          <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-6'>
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={index}
+                  className='p-5 bg-white rounded-xl hover:bg-purple-50 transition-colors group border border-gray-100'
+                >
+                  <div className='w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors'>
+                    <Icon className='w-5 h-5 text-purple-600' />
+                  </div>
+                  <h3 className='text-lg font-semibold text-gray-900 mb-2'>
+                    {feature.title}
+                  </h3>
+                  <p className='text-gray-600 text-sm'>{feature.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
