@@ -10,6 +10,7 @@ import {
   Upload,
   Brain,
   CheckCircle,
+  Globe,
 } from 'lucide-react';
 import type { LandingProps } from '../../types/index';
 
@@ -47,6 +48,12 @@ const Landing = ({ onSignInClick }: LandingProps) => {
       title: 'Accreditation Ready',
       description:
         'Map to Graduate Capabilities and AACSB Assurance of Learning standards.',
+    },
+    {
+      icon: Globe,
+      title: 'UN Global Goals',
+      description:
+        'Align your curriculum with the 17 UN Sustainable Development Goals.',
     },
   ];
 
