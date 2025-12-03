@@ -17,6 +17,7 @@ import { AssessmentsManager } from '../components/UnitStructure/AssessmentsManag
 import CoursePlanner from '../components/UnitStructure/CoursePlanner';
 import WeekAccordion from '../components/UnitStructure/WeekAccordion';
 import LearningOutcomeMap from '../components/UnitStructure/LearningOutcomeMap';
+import GraduateCapabilitiesPanel from '../components/UnitStructure/GraduateCapabilitiesPanel';
 import AoLMappingPanel from '../components/UnitStructure/AoLMappingPanel';
 import SDGMappingPanel from '../components/UnitStructure/SDGMappingPanel';
 import type { Unit } from '../types';
@@ -295,6 +296,10 @@ const UnitPage = () => {
 
             {/* Accreditation Mapping Panels */}
             <div className='mb-6 space-y-4'>
+              <GraduateCapabilitiesPanel
+                unitId={unitId!}
+                onViewMap={() => setShowOutcomeMap(true)}
+              />
               <AoLMappingPanel unitId={unitId!} />
               <SDGMappingPanel unitId={unitId!} />
             </div>
