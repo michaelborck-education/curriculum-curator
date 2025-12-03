@@ -27,6 +27,8 @@ An Architecture Decision Record captures an important architectural decision mad
 | [0017](0017-fastapi-rest-backend.md) | FastAPI REST Backend with JWT Auth | **Accepted** |
 | [0019](0019-database-abstraction-sqlalchemy.md) | Database Abstraction with SQLAlchemy | **Accepted** |
 | [0021](0021-web-search-citation-integration.md) | Web Search and Citation Integration | **Accepted** |
+| [0022](0022-content-type-system-evolution.md) | Content Type System Evolution | **Accepted** |
+| [0023](0023-file-import-processing-architecture.md) | File Import and Processing Architecture | **Accepted** |
 | [0015](0015-content-format-and-export-strategy.md) | Content Format and Export Strategy | Proposed |
 | [0014](0014-litellm-unified-llm-abstraction.md) | LiteLLM for Unified LLM Abstraction | Accepted |
 | [0013](0013-git-backed-content-storage.md) | Git-Backed Content Storage | Proposed (Phase 2) |
@@ -39,11 +41,13 @@ An Architecture Decision Record captures an important architectural decision mad
 - [ADR-0005: Hybrid Storage Approach](0005-hybrid-storage-approach.md) - Data persistence strategy
 - [ADR-0019: Database Abstraction](0019-database-abstraction-sqlalchemy.md) - SQLAlchemy ORM for portability
 - [ADR-0021: Web Search and Citation Integration](0021-web-search-citation-integration.md) - Academic research integration
+- [ADR-0023: File Import and Processing Architecture](0023-file-import-processing-architecture.md) - Multi-format document processing
 
 ### User Experience
 - [ADR-0004: Teaching Philosophy System](0004-teaching-philosophy-system.md) - Personalization framework
 - [ADR-0018: Workflow Flexibility](0018-workflow-flexibility-philosophy.md) - Assist, don't enforce
 - [ADR-0020: AI-Optional User Empowerment](0020-ai-optional-user-empowerment.md) - AI assists, never gates
+- [ADR-0022: Content Type System Evolution](0022-content-type-system-evolution.md) - Comprehensive content categorization
 
 ### Authentication & Security
 - [ADR-0007: Simple Authentication for Internal Network](0007-simple-authentication-internal-network.md) - Basic auth approach
