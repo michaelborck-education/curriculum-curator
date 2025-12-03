@@ -53,6 +53,7 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Use shared units store
   const { units, loading, fetchUnits } = useUnitsStore();
@@ -331,31 +332,6 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
             </button>
           </div>
         </nav>
-
-        {/* Bottom Section */}
-        <div className='border-t border-gray-800 p-4'>
-          <button
-            onClick={() => {
-              navigate('/settings');
-              setMobileSidebarOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition ${
-              isActive('/settings')
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-            }`}
-          >
-            <Settings className='w-5 h-5 flex-shrink-0' />
-            <span>Settings</span>
-          </button>
-          <button
-            onClick={logout}
-            className='w-full flex items-center gap-3 px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition mt-1'
-          >
-            <LogOut className='w-5 h-5 flex-shrink-0' />
-            <span>Sign Out</span>
-          </button>
-        </div>
       </div>
 
       {/* Main Content Area */}
@@ -445,13 +421,55 @@ const AppLayout = ({ onLogout }: AppLayoutProps) => {
                 </div>
 
                 {/* User Menu */}
-                <div className='flex items-center gap-2'>
-                  <div className='w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium'>
-                    {user?.name?.charAt(0) || 'U'}
-                  </div>
-                  <span className='hidden sm:block text-sm font-medium text-gray-700'>
-                    {user?.name || 'User'}
-                  </span>
+                <div className='relative'>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className='flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition'
+                  >
+                    <div className='w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium'>
+                      {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <span className='hidden sm:block text-sm font-medium text-gray-700'>
+                      {user?.name || 'User'}
+                    </span>
+                    <ChevronDown className='w-4 h-4 text-gray-500' />
+                  </button>
+
+                  {userMenuOpen && (
+                    <>
+                      <div
+                        className='fixed inset-0 z-10'
+                        onClick={() => setUserMenuOpen(false)}
+                      />
+                      <div className='absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20'>
+                        <button
+                          onClick={() => {
+                            navigate('/settings');
+                            setUserMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-50 transition ${
+                            isActive('/settings')
+                              ? 'text-purple-600'
+                              : 'text-gray-700'
+                          }`}
+                        >
+                          <Settings className='w-4 h-4' />
+                          <span>Settings</span>
+                        </button>
+                        <div className='border-t border-gray-100 my-1' />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setUserMenuOpen(false);
+                          }}
+                          className='w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition'
+                        >
+                          <LogOut className='w-4 h-4' />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -44,6 +44,11 @@ import {
   BulkAoLMappingCreate,
   AoLMappingSummary,
   GraduateCapabilityCode,
+  SDGMapping,
+  SDGMappingCreate,
+  BulkSDGMappingCreate,
+  SDGMappingSummary,
+  SDGCode,
 } from '../types/unitStructure';
 
 // ============= Learning Outcomes API =============
@@ -495,5 +500,42 @@ export const accreditationApi = {
     await api.delete(
       `/accreditation/units/${unitId}/aol-mappings/${competencyCode}`
     );
+  },
+
+  // SDG Mappings (Unit-level)
+  getUnitSDGMappings: async (unitId: string): Promise<SDGMappingSummary> => {
+    const response = await api.get(
+      `/accreditation/units/${unitId}/sdg-mappings`
+    );
+    return response.data;
+  },
+
+  addUnitSDGMapping: async (
+    unitId: string,
+    data: SDGMappingCreate
+  ): Promise<SDGMapping> => {
+    const response = await api.post(
+      `/accreditation/units/${unitId}/sdg-mappings`,
+      data
+    );
+    return response.data;
+  },
+
+  updateUnitSDGMappings: async (
+    unitId: string,
+    data: BulkSDGMappingCreate
+  ): Promise<SDGMappingSummary> => {
+    const response = await api.put(
+      `/accreditation/units/${unitId}/sdg-mappings`,
+      data
+    );
+    return response.data;
+  },
+
+  removeUnitSDGMapping: async (
+    unitId: string,
+    sdgCode: SDGCode
+  ): Promise<void> => {
+    await api.delete(`/accreditation/units/${unitId}/sdg-mappings/${sdgCode}`);
   },
 };

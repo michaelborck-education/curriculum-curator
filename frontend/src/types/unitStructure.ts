@@ -366,6 +366,24 @@ export type AoLCompetencyCode =
   | 'AOL6'
   | 'AOL7';
 export type AoLLevel = 'I' | 'R' | 'M';
+export type SDGCode =
+  | 'SDG1'
+  | 'SDG2'
+  | 'SDG3'
+  | 'SDG4'
+  | 'SDG5'
+  | 'SDG6'
+  | 'SDG7'
+  | 'SDG8'
+  | 'SDG9'
+  | 'SDG10'
+  | 'SDG11'
+  | 'SDG12'
+  | 'SDG13'
+  | 'SDG14'
+  | 'SDG15'
+  | 'SDG16'
+  | 'SDG17';
 
 export interface GraduateCapabilityMapping {
   id: string;
@@ -415,4 +433,33 @@ export interface AoLMappingSummary {
   mappedCount: number;
   totalCompetencies: number;
   mappings: AoLMapping[];
+}
+
+// ============= SDG Mappings =============
+
+export interface SDGMapping {
+  id: string;
+  unitId: string;
+  sdgCode: SDGCode;
+  isAiSuggested: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SDGMappingCreate {
+  sdgCode: SDGCode;
+  isAiSuggested?: boolean;
+  notes?: string;
+}
+
+export interface BulkSDGMappingCreate {
+  mappings: SDGMappingCreate[];
+}
+
+export interface SDGMappingSummary {
+  unitId: string;
+  mappedCount: number;
+  totalSdgs: number;
+  mappings: SDGMapping[];
 }

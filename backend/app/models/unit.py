@@ -14,7 +14,7 @@ from app.core.database import Base
 from app.models.common import GUID
 
 if TYPE_CHECKING:
-    from app.models.accreditation_mappings import UnitAoLMapping
+    from app.models.accreditation_mappings import UnitAoLMapping, UnitSDGMapping
     from app.models.assessment import Assessment
     from app.models.chat import ChatSession
     from app.models.chat_session import WorkflowChatSession
@@ -167,6 +167,9 @@ class Unit(Base):
 
     # Accreditation mappings
     aol_mappings: Mapped[list["UnitAoLMapping"]] = relationship(
+        back_populates="unit", cascade="all, delete-orphan"
+    )
+    sdg_mappings: Mapped[list["UnitSDGMapping"]] = relationship(
         back_populates="unit", cascade="all, delete-orphan"
     )
 

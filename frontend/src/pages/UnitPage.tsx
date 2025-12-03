@@ -18,6 +18,7 @@ import CoursePlanner from '../components/UnitStructure/CoursePlanner';
 import WeekAccordion from '../components/UnitStructure/WeekAccordion';
 import LearningOutcomeMap from '../components/UnitStructure/LearningOutcomeMap';
 import AoLMappingPanel from '../components/UnitStructure/AoLMappingPanel';
+import SDGMappingPanel from '../components/UnitStructure/SDGMappingPanel';
 import type { Unit } from '../types';
 import { LoadingState, Button, Modal, Alert } from '../components/ui';
 import toast from 'react-hot-toast';
@@ -292,9 +293,10 @@ const UnitPage = () => {
               </div>
             )}
 
-            {/* AoL Mapping Panel */}
-            <div className='mb-6'>
+            {/* Accreditation Mapping Panels */}
+            <div className='mb-6 space-y-4'>
               <AoLMappingPanel unitId={unitId!} />
+              <SDGMappingPanel unitId={unitId!} />
             </div>
 
             {/* Week Accordion */}

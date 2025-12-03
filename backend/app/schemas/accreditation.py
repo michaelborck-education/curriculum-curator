@@ -97,6 +97,28 @@ class AoLLevel(str, Enum):
     MASTER = "M"  # Demonstrate proficiency at graduation level
 
 
+class SDGCode(str, Enum):
+    """UN Sustainable Development Goals codes (SDG1-SDG17)"""
+
+    SDG1 = "SDG1"  # No Poverty
+    SDG2 = "SDG2"  # Zero Hunger
+    SDG3 = "SDG3"  # Good Health and Well-being
+    SDG4 = "SDG4"  # Quality Education
+    SDG5 = "SDG5"  # Gender Equality
+    SDG6 = "SDG6"  # Clean Water and Sanitation
+    SDG7 = "SDG7"  # Affordable and Clean Energy
+    SDG8 = "SDG8"  # Decent Work and Economic Growth
+    SDG9 = "SDG9"  # Industry, Innovation and Infrastructure
+    SDG10 = "SDG10"  # Reduced Inequalities
+    SDG11 = "SDG11"  # Sustainable Cities and Communities
+    SDG12 = "SDG12"  # Responsible Consumption and Production
+    SDG13 = "SDG13"  # Climate Action
+    SDG14 = "SDG14"  # Life Below Water
+    SDG15 = "SDG15"  # Life on Land
+    SDG16 = "SDG16"  # Peace, Justice and Strong Institutions
+    SDG17 = "SDG17"  # Partnerships for the Goals
+
+
 class AoLMappingBase(CamelModel):
     """Base schema for AoL mappings"""
 
@@ -157,6 +179,64 @@ class AoLMappingSummary(CamelModel):
         default=7, description="Total possible competencies"
     )
     mappings: list[AoLMappingResponse] = Field(default_factory=list)
+
+
+# ============= SDG (Sustainable Development Goals) Schemas =============
+
+
+class SDGMappingBase(CamelModel):
+    """Base schema for SDG mappings"""
+
+    sdg_code: SDGCode = Field(..., description="SDG code (SDG1-SDG17)")
+    is_ai_suggested: bool = Field(
+        default=False, description="Whether this mapping was AI-suggested"
+    )
+    notes: str | None = Field(None, description="Optional notes/justification")
+
+
+class SDGMappingCreate(SDGMappingBase):
+    """Schema for creating an SDG mapping"""
+
+
+class SDGMappingUpdate(CamelModel):
+    """Schema for updating an SDG mapping"""
+
+    sdg_code: SDGCode | None = None
+    is_ai_suggested: bool | None = None
+    notes: str | None = None
+
+
+class SDGMappingResponse(CamelModel):
+    """Schema for SDG mapping response"""
+
+    id: str
+    unit_id: str
+    sdg_code: str  # SDG1-SDG17 as string from database
+    is_ai_suggested: bool
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BulkSDGMappingCreate(BaseModel):
+    """Schema for creating/updating all SDG mappings for a unit at once"""
+
+    mappings: list[SDGMappingCreate] = Field(
+        default_factory=list,
+        description="List of SDG mappings",
+    )
+
+
+class SDGMappingSummary(CamelModel):
+    """Summary of SDG mappings for a unit"""
+
+    unit_id: str
+    mapped_count: int = Field(description="Number of SDGs mapped")
+    total_sdgs: int = Field(default=17, description="Total possible SDGs")
+    mappings: list[SDGMappingResponse] = Field(default_factory=list)
 
 
 # ============= Combined Response Schemas =============

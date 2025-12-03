@@ -13,6 +13,7 @@ from app.api import deps
 from app.models.accreditation_mappings import (
     ULOGraduateCapabilityMapping,
     UnitAoLMapping,
+    UnitSDGMapping,
 )
 from app.models.learning_outcome import UnitLearningOutcome
 from app.models.unit import Unit
@@ -23,8 +24,12 @@ from app.schemas.accreditation import (
     AoLMappingSummary,
     BulkAoLMappingCreate,
     BulkGraduateCapabilityMappingCreate,
+    BulkSDGMappingCreate,
     GraduateCapabilityMappingCreate,
     GraduateCapabilityMappingResponse,
+    SDGMappingCreate,
+    SDGMappingResponse,
+    SDGMappingSummary,
 )
 
 router = APIRouter()
@@ -404,6 +409,194 @@ async def remove_unit_aol_mapping(
         select(UnitAoLMapping).where(
             UnitAoLMapping.unit_id == str(unit_id),
             UnitAoLMapping.competency_code == competency_code.upper(),
+        )
+    ).scalar_one_or_none()
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mapping not found",
+        )
+
+    db.delete(existing)
+    db.commit()
+
+    return {"message": "Mapping removed successfully"}
+
+
+# ============= SDG Mappings (Unit-level) =============
+
+
+@router.get("/units/{unit_id}/sdg-mappings", response_model=SDGMappingSummary)
+async def get_unit_sdg_mappings(
+    unit_id: UUID,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Get all SDG mappings for a unit"""
+    # Verify unit exists
+    unit = db.execute(select(Unit).where(Unit.id == str(unit_id))).scalar_one_or_none()
+
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found",
+        )
+
+    mappings = (
+        db.execute(select(UnitSDGMapping).where(UnitSDGMapping.unit_id == str(unit_id)))
+        .scalars()
+        .all()
+    )
+
+    mapping_responses = [
+        SDGMappingResponse(
+            id=str(m.id),
+            unit_id=str(m.unit_id),
+            sdg_code=m.sdg_code,
+            is_ai_suggested=m.is_ai_suggested,
+            notes=m.notes,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+        )
+        for m in mappings
+    ]
+
+    return SDGMappingSummary(
+        unit_id=str(unit_id),
+        mapped_count=len(mapping_responses),
+        total_sdgs=17,
+        mappings=mapping_responses,
+    )
+
+
+@router.post("/units/{unit_id}/sdg-mappings", response_model=SDGMappingResponse)
+async def add_unit_sdg_mapping(
+    unit_id: UUID,
+    mapping_data: SDGMappingCreate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Add an SDG mapping to a unit"""
+    # Verify unit exists
+    unit = db.execute(select(Unit).where(Unit.id == str(unit_id))).scalar_one_or_none()
+
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found",
+        )
+
+    # Check if mapping already exists for this SDG
+    existing = db.execute(
+        select(UnitSDGMapping).where(
+            UnitSDGMapping.unit_id == str(unit_id),
+            UnitSDGMapping.sdg_code == mapping_data.sdg_code.value,
+        )
+    ).scalar_one_or_none()
+
+    if existing:
+        # Update existing mapping
+        existing.is_ai_suggested = mapping_data.is_ai_suggested
+        existing.notes = mapping_data.notes
+        db.commit()
+        db.refresh(existing)
+        mapping = existing
+    else:
+        # Create new mapping
+        mapping = UnitSDGMapping(
+            unit_id=str(unit_id),
+            sdg_code=mapping_data.sdg_code.value,
+            is_ai_suggested=mapping_data.is_ai_suggested,
+            notes=mapping_data.notes,
+        )
+        db.add(mapping)
+        db.commit()
+        db.refresh(mapping)
+
+    return SDGMappingResponse(
+        id=str(mapping.id),
+        unit_id=str(mapping.unit_id),
+        sdg_code=mapping.sdg_code,
+        is_ai_suggested=mapping.is_ai_suggested,
+        notes=mapping.notes,
+        created_at=mapping.created_at,
+        updated_at=mapping.updated_at,
+    )
+
+
+@router.put("/units/{unit_id}/sdg-mappings", response_model=SDGMappingSummary)
+async def update_unit_sdg_mappings(
+    unit_id: UUID,
+    bulk_data: BulkSDGMappingCreate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Replace all SDG mappings for a unit"""
+    # Verify unit exists
+    unit = db.execute(select(Unit).where(Unit.id == str(unit_id))).scalar_one_or_none()
+
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found",
+        )
+
+    # Delete existing mappings
+    db.execute(delete(UnitSDGMapping).where(UnitSDGMapping.unit_id == str(unit_id)))
+
+    # Create new mappings
+    new_mappings = []
+    for mapping_data in bulk_data.mappings:
+        mapping = UnitSDGMapping(
+            unit_id=str(unit_id),
+            sdg_code=mapping_data.sdg_code.value,
+            is_ai_suggested=mapping_data.is_ai_suggested,
+            notes=mapping_data.notes,
+        )
+        db.add(mapping)
+        new_mappings.append(mapping)
+
+    db.commit()
+
+    # Refresh all mappings
+    for m in new_mappings:
+        db.refresh(m)
+
+    mapping_responses = [
+        SDGMappingResponse(
+            id=str(m.id),
+            unit_id=str(m.unit_id),
+            sdg_code=m.sdg_code,
+            is_ai_suggested=m.is_ai_suggested,
+            notes=m.notes,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+        )
+        for m in new_mappings
+    ]
+
+    return SDGMappingSummary(
+        unit_id=str(unit_id),
+        mapped_count=len(mapping_responses),
+        total_sdgs=17,
+        mappings=mapping_responses,
+    )
+
+
+@router.delete("/units/{unit_id}/sdg-mappings/{sdg_code}")
+async def remove_unit_sdg_mapping(
+    unit_id: UUID,
+    sdg_code: str,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Remove an SDG mapping from a unit"""
+    # First check if mapping exists
+    existing = db.execute(
+        select(UnitSDGMapping).where(
+            UnitSDGMapping.unit_id == str(unit_id),
+            UnitSDGMapping.sdg_code == sdg_code.upper(),
         )
     ).scalar_one_or_none()
 

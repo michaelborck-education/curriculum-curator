@@ -1,8 +1,10 @@
 """
-Accreditation mapping models for Graduate Capabilities and Assurance of Learning (AoL)
+Accreditation mapping models for Graduate Capabilities, Assurance of Learning (AoL),
+and UN Sustainable Development Goals (SDGs)
 
 Graduate Capabilities: Curtin University's 6 graduate attributes mapped to ULOs
 AoL Competencies: AACSB's 7 program-level competency areas mapped to Units with I/R/M levels
+SDGs: UN's 17 Sustainable Development Goals mapped to Units
 """
 
 import uuid
@@ -50,6 +52,28 @@ class AoLLevel(str, Enum):
     INTRODUCE = "I"  # First exposure, basic understanding
     REINFORCE = "R"  # Practice and deepen skills
     MASTER = "M"  # Demonstrate proficiency at graduation level
+
+
+class SDGCode(str, Enum):
+    """UN Sustainable Development Goals codes (SDG1-SDG17)"""
+
+    SDG1 = "SDG1"  # No Poverty
+    SDG2 = "SDG2"  # Zero Hunger
+    SDG3 = "SDG3"  # Good Health and Well-being
+    SDG4 = "SDG4"  # Quality Education
+    SDG5 = "SDG5"  # Gender Equality
+    SDG6 = "SDG6"  # Clean Water and Sanitation
+    SDG7 = "SDG7"  # Affordable and Clean Energy
+    SDG8 = "SDG8"  # Decent Work and Economic Growth
+    SDG9 = "SDG9"  # Industry, Innovation and Infrastructure
+    SDG10 = "SDG10"  # Reduced Inequalities
+    SDG11 = "SDG11"  # Sustainable Cities and Communities
+    SDG12 = "SDG12"  # Responsible Consumption and Production
+    SDG13 = "SDG13"  # Climate Action
+    SDG14 = "SDG14"  # Life Below Water
+    SDG15 = "SDG15"  # Life on Land
+    SDG16 = "SDG16"  # Peace, Justice and Strong Institutions
+    SDG17 = "SDG17"  # Partnerships for the Goals
 
 
 class ULOGraduateCapabilityMapping(Base):
@@ -138,3 +162,45 @@ class UnitAoLMapping(Base):
 
     def __repr__(self) -> str:
         return f"<UnitAoLMapping(unit_id={self.unit_id}, competency={self.competency_code}, level={self.level})>"
+
+
+class UnitSDGMapping(Base):
+    """
+    Maps Units to UN Sustainable Development Goals (SDGs).
+    This is a unit-level mapping showing how the unit contributes
+    to the Global Goals for sustainable development.
+    """
+
+    __tablename__ = "unit_sdg_mappings"
+
+    id: Mapped[str] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4, index=True
+    )
+
+    # Foreign key to Unit
+    unit_id: Mapped[str] = mapped_column(
+        GUID(),
+        ForeignKey("units.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # SDG code (SDG1-SDG17)
+    sdg_code: Mapped[str] = mapped_column(String(10), index=True)
+
+    # Whether this was AI-suggested or manually set
+    is_ai_suggested: Mapped[bool] = mapped_column(default=False)
+
+    # Optional notes/justification for the mapping
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    unit: Mapped["Unit"] = relationship(back_populates="sdg_mappings")
+
+    def __repr__(self) -> str:
+        return f"<UnitSDGMapping(unit_id={self.unit_id}, sdg={self.sdg_code})>"
