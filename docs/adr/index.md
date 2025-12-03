@@ -26,6 +26,7 @@ An Architecture Decision Record captures an important architectural decision mad
 | [0016](0016-react-typescript-frontend.md) | React + TypeScript Frontend | **Accepted** |
 | [0017](0017-fastapi-rest-backend.md) | FastAPI REST Backend with JWT Auth | **Accepted** |
 | [0019](0019-database-abstraction-sqlalchemy.md) | Database Abstraction with SQLAlchemy | **Accepted** |
+| [0021](0021-web-search-citation-integration.md) | Web Search and Citation Integration | **Accepted** |
 | [0015](0015-content-format-and-export-strategy.md) | Content Format and Export Strategy | Proposed |
 | [0014](0014-litellm-unified-llm-abstraction.md) | LiteLLM for Unified LLM Abstraction | Accepted |
 | [0013](0013-git-backed-content-storage.md) | Git-Backed Content Storage | Proposed (Phase 2) |
@@ -37,6 +38,7 @@ An Architecture Decision Record captures an important architectural decision mad
 - [ADR-0003: Plugin Architecture](0003-plugin-architecture.md) - Extensibility approach
 - [ADR-0005: Hybrid Storage Approach](0005-hybrid-storage-approach.md) - Data persistence strategy
 - [ADR-0019: Database Abstraction](0019-database-abstraction-sqlalchemy.md) - SQLAlchemy ORM for portability
+- [ADR-0021: Web Search and Citation Integration](0021-web-search-citation-integration.md) - Academic research integration
 
 ### User Experience
 - [ADR-0004: Teaching Philosophy System](0004-teaching-philosophy-system.md) - Personalization framework
