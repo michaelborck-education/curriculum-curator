@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     # Git Content Repository
     CONTENT_REPO_PATH: str = "./content"  # Default to local content directory
 
+    # Web Search (SearXNG)
+    SEARXNG_URL: str = "http://localhost:8080"  # SearXNG instance URL
+    SEARXNG_TIMEOUT: int = 30  # Search timeout in seconds
+
     class Config:
         env_file = ".env"
         case_sensitive = True

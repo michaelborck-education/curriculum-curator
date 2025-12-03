@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.llm_config import LLMConfiguration, TokenUsageLog
     from app.models.password_reset import PasswordReset
     from app.models.quarto_preset import QuartoPreset
+    from app.models.research_source import ResearchSource
     from app.models.unit import Unit
 
 
@@ -108,6 +109,9 @@ class User(Base):
     )
     owned_units: Mapped[list["Unit"]] = relationship(
         foreign_keys="Unit.owner_id", back_populates="owner"
+    )
+    research_sources: Mapped[list["ResearchSource"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

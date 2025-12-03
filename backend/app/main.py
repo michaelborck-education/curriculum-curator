@@ -318,6 +318,22 @@ try:
 except ImportError as e:
     logger.warning(f"Failed to load monitoring routes: {e}")
 
+try:
+    from app.api.routes import web_search
+
+    app.include_router(web_search.router, prefix="/api/search", tags=["search"])
+except ImportError as e:
+    logger.warning(f"Failed to load web_search routes: {e}")
+
+try:
+    from app.api.routes import research_sources
+
+    app.include_router(
+        research_sources.router, prefix="/api/sources", tags=["research-sources"]
+    )
+except ImportError as e:
+    logger.warning(f"Failed to load research_sources routes: {e}")
+
 
 # Remove the root API endpoint - let static files handle it
 

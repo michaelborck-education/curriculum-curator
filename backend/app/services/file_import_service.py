@@ -6,6 +6,7 @@ Supports PDF, DOCX, PPTX, and other document formats
 import io
 import mimetypes
 import re
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any, ClassVar
@@ -903,6 +904,278 @@ class FileImportService:
 
         # Return top 10 most common words as tags
         return [word for word, _ in word_counts.most_common(10)]
+
+    def detect_week_number(self, filename: str, folder_path: str = "") -> int | None:
+        """
+        Detect week number from filename and folder path.
+
+        Returns:
+            Week number (1-52) or None if not detected
+        """
+        # Week detection patterns
+        week_patterns = [
+            r"week[_\s]*(\d+)",
+            r"w[_\s]*(\d+)",
+            r"lecture[_\s]*(\d+)",
+            r"module[_\s]*(\d+)",
+            r"chapter[_\s]*(\d+)",
+            r"topic[_\s]*(\d+)",
+            r"session[_\s]*(\d+)",
+            r"class[_\s]*(\d+)",
+            r"^(\d+)[_\s]",  # Starts with number
+            r"[_\s](\d+)[_\s]",  # Number in middle
+        ]
+
+        # Combine filename and folder path for analysis
+        text_to_analyze = f"{folder_path}/{filename}".lower()
+
+        # Check filename patterns
+        for pattern in week_patterns:
+            matches = re.findall(pattern, text_to_analyze)
+            if matches:
+                try:
+                    week_num = int(matches[0])
+                    if 1 <= week_num <= 52:
+                        return week_num
+                except (ValueError, IndexError):
+                    continue
+
+        # Check folder structure
+        folder_parts = folder_path.split("/")
+        for part in folder_parts:
+            for pattern in week_patterns:
+                matches = re.findall(pattern, part.lower())
+                if matches:
+                    try:
+                        week_num = int(matches[0])
+                        if 1 <= week_num <= 52:
+                            return week_num
+                    except (ValueError, IndexError):
+                        continue
+
+        return None
+
+    def detect_content_type_from_name(
+        self, filename: str, folder_path: str = ""
+    ) -> str:
+        """
+        Detect content type from filename and folder path.
+
+        Returns:
+            Content type string (e.g., 'lecture', 'worksheet', 'quiz', etc.)
+        """
+        # Folder structure patterns
+        folder_patterns = {
+            "week": [r"week[_\s]*(\d+)", r"w[_\s]*(\d+)"],
+            "module": [r"module[_\s]*(\d+)", r"chapter[_\s]*(\d+)"],
+            "lecture": [r"lecture", r"slides", r"presentation"],
+            "worksheet": [r"worksheet", r"exercise", r"practice", r"problem"],
+            "quiz": [r"quiz", r"test", r"exam", r"assessment"],
+            "reading": [r"reading", r"article", r"paper", r"textbook"],
+            "lab": [r"lab", r"practical", r"experiment"],
+            "assignment": [r"assignment", r"homework", r"project"],
+        }
+
+        # Unit outline detection patterns
+        outline_patterns = [
+            r"unit[_\s]*outline",
+            r"course[_\s]*outline",
+            r"syllabus",
+            r"course[_\s]*guide",
+            r"subject[_\s]*outline",
+            r"unit[_\s]*description",
+            r"course[_\s]*description",
+        ]
+
+        text_to_analyze = f"{folder_path}/{filename}".lower()
+
+        # Check for unit outline
+        for pattern in outline_patterns:
+            if re.search(pattern, text_to_analyze):
+                return "syllabus"
+
+        # Check other content types
+        type_scores = {}
+        for content_type, patterns in folder_patterns.items():
+            if content_type == "week" or content_type == "module":
+                continue  # Skip week/module patterns
+
+            score = 0
+            for pattern in patterns:
+                matches = re.findall(pattern, text_to_analyze)
+                score += len(matches)
+
+            if score > 0:
+                type_scores[content_type] = score
+
+        if type_scores:
+            # Return type with highest score
+            return max(type_scores.items(), key=lambda x: x[1])[0]
+
+        return "general"
+
+    def is_unit_outline(self, filename: str) -> bool:
+        """Check if file appears to be a unit outline."""
+        outline_patterns = [
+            r"unit[_\s]*outline",
+            r"course[_\s]*outline",
+            r"syllabus",
+            r"course[_\s]*guide",
+            r"subject[_\s]*outline",
+            r"unit[_\s]*description",
+            r"course[_\s]*description",
+        ]
+
+        filename_lower = filename.lower()
+        for pattern in outline_patterns:
+            if re.search(pattern, filename_lower):
+                return True
+        return False
+
+    async def process_zip_file(
+        self, zip_content: bytes, unit_id: str, db: Any, current_user: Any
+    ) -> dict[str, Any]:
+        """
+        Process a ZIP file containing unit materials.
+
+        Returns:
+            Dict with analysis of ZIP contents and suggested structure
+        """
+        import os
+        import tempfile
+
+        results = {
+            "unit_outline_found": False,
+            "unit_outline_file": None,
+            "files_by_week": {},
+            "suggested_structure": [],
+            "total_files": 0,
+            "processed_files": [],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = os.path.join(temp_dir, "uploaded.zip")
+            with open(zip_path, "wb") as f:
+                f.write(zip_content)
+
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                # Extract all files
+                zip_ref.extractall(temp_dir)
+
+                # Analyze file structure
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        if file.startswith(".") or file.startswith("__"):
+                            continue  # Skip hidden files
+
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, temp_dir)
+                        folder_path = os.path.dirname(rel_path)
+
+                        # Check if unit outline
+                        if self.is_unit_outline(file):
+                            results["unit_outline_found"] = True
+                            results["unit_outline_file"] = {
+                                "filename": file,
+                                "path": rel_path,
+                                "folder": folder_path,
+                            }
+
+                        # Detect week number
+                        week_num = self.detect_week_number(file, folder_path)
+
+                        # Detect content type
+                        content_type = self.detect_content_type_from_name(
+                            file, folder_path
+                        )
+
+                        # Read file content for further analysis
+                        try:
+                            with open(file_path, "rb") as f:
+                                file_content = f.read()
+
+                            # Process file to get more details
+                            file_result = await self.process_file(
+                                file_content, file, None
+                            )
+
+                            file_info = {
+                                "filename": file,
+                                "path": rel_path,
+                                "folder": folder_path,
+                                "week_number": week_num,
+                                "detected_type": content_type,
+                                "processed_type": file_result.get(
+                                    "content_type", "general"
+                                ),
+                                "confidence": file_result.get(
+                                    "content_type_confidence", 0
+                                ),
+                                "word_count": file_result.get("word_count", 0),
+                                "size": len(file_content),
+                            }
+
+                            results["processed_files"].append(file_info)
+                            results["total_files"] += 1
+
+                            # Group by week
+                            if week_num:
+                                if week_num not in results["files_by_week"]:
+                                    results["files_by_week"][week_num] = []
+                                results["files_by_week"][week_num].append(file_info)
+
+                        except Exception:
+                            # Skip files we can't process
+                            continue
+
+        # Generate suggested structure
+        for week_num, files in sorted(results["files_by_week"].items()):
+            week_info = {
+                "week": week_num,
+                "total_files": len(files),
+                "file_types": {},
+                "suggested_content": [],
+            }
+
+            # Count file types
+            type_counts = {}
+            for file_info in files:
+                file_type = file_info["detected_type"]
+                type_counts[file_type] = type_counts.get(file_type, 0) + 1
+
+            week_info["file_types"] = type_counts
+
+            # Suggest content structure
+            if "lecture" in type_counts:
+                week_info["suggested_content"].append(
+                    {
+                        "type": "lecture",
+                        "count": type_counts["lecture"],
+                        "description": f"{type_counts['lecture']} lecture(s) for Week {week_num}",
+                    }
+                )
+
+            if "worksheet" in type_counts:
+                week_info["suggested_content"].append(
+                    {
+                        "type": "worksheet",
+                        "count": type_counts["worksheet"],
+                        "description": f"{type_counts['worksheet']} worksheet(s) for Week {week_num}",
+                    }
+                )
+
+            if "reading" in type_counts:
+                week_info["suggested_content"].append(
+                    {
+                        "type": "reading",
+                        "count": type_counts["reading"],
+                        "description": f"{type_counts['reading']} reading(s) for Week {week_num}",
+                    }
+                )
+
+            results["suggested_structure"].append(week_info)
+
+        return results
 
 
 # Create singleton instance

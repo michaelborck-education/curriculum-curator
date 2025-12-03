@@ -119,16 +119,28 @@ const MaterialDetail: React.FC = () => {
 
   const getContentTypeIcon = (type: string) => {
     const icons: { [key: string]: string } = {
-      lecture: '📚',
-      quiz: '📝',
-      worksheet: '✏️',
-      lab: '🔬',
-      case_study: '💼',
-      interactive_html: '🎮',
       syllabus: '📋',
-      reading: '📖',
-      video: '🎥',
+      schedule: '📅',
+      lecture: '📚',
+      module: '📦',
+      worksheet: '✏️',
+      faq: '❓',
+      quiz: '📝',
+      short_answer: '✍️',
+      matching: '🔗',
+      case_study: '💼',
+      interactive: '🎮',
+      resource: '🔗', // Updated from reading
       assignment: '📄',
+      project: '🚀',
+      assessment: '📊',
+      video: '🎥',
+      podcast: '🎧',
+      tutorial: '📖',
+      // Legacy support
+      lab: '🔬',
+      reading: '📖',
+      interactive_html: '🎮',
     };
     return icons[type] || '📄';
   };

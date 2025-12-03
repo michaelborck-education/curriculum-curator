@@ -50,6 +50,7 @@ from .material import Material, MaterialType
 from .password_reset import PasswordReset
 from .quarto_preset import QuartoPreset
 from .quiz_question import QuestionType, QuizQuestion
+from .research_source import CitationStyle, ContentCitation, ResearchSource, SourceType
 from .security_log import SecurityEventType, SecurityLog
 from .system_config import ConfigCategory, SystemConfig
 from .system_settings import SystemSettings
@@ -155,4 +156,9 @@ __all__ = [
     "material_ulo_mappings",
     "assessment_ulo_mappings",
     "assessment_material_links",
+    # Research sources and citations
+    "ResearchSource",
+    "ContentCitation",
+    "SourceType",
+    "CitationStyle",
 ]

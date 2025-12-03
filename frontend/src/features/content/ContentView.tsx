@@ -76,13 +76,26 @@ const ContentView = () => {
 
   const getContentTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
+      syllabus: 'Syllabus',
+      schedule: 'Schedule',
       lecture: 'Lecture',
+      module: 'Module',
+      worksheet: 'Worksheet',
+      faq: 'FAQ',
+      quiz: 'Quiz',
+      short_answer: 'Short Answer',
+      matching: 'Matching',
+      case_study: 'Case Study',
+      interactive: 'Interactive',
+      resource: 'Resource', // Updated from 'reading'
       assignment: 'Assignment',
       project: 'Project',
-      quiz: 'Quiz',
-      worksheet: 'Worksheet',
+      assessment: 'Assessment',
+      video: 'Video',
+      podcast: 'Podcast',
+      tutorial: 'Tutorial',
+      // Legacy support
       lab: 'Lab',
-      case_study: 'Case Study',
       reading: 'Reading',
       video_script: 'Video Script',
     };

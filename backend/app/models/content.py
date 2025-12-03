@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from app.models.generation_history import GenerationHistory
     from app.models.learning_outcome import UnitLearningOutcome
     from app.models.quiz_question import QuizQuestion
+    from app.models.research_source import ContentCitation
     from app.models.unit import Unit
     from app.models.validation_result import ValidationResult
 
@@ -46,10 +47,15 @@ class ContentType(str, Enum):
     MATCHING = "matching"
     CASE_STUDY = "case_study"
     INTERACTIVE = "interactive"
-    READING = "reading"
+    RESOURCE = (
+        "resource"  # Renamed from READING - includes articles, videos, websites, etc.
+    )
     ASSIGNMENT = "assignment"
     PROJECT = "project"
     ASSESSMENT = "assessment"
+    VIDEO = "video"  # Explicit video content
+    PODCAST = "podcast"  # Audio content
+    TUTORIAL = "tutorial"  # Step-by-step guides
 
 
 class ContentStatus(str, Enum):
@@ -158,6 +164,11 @@ class Content(Base):
         secondary="content_outcomes",
         back_populates="contents",
         overlaps="contents",
+    )
+
+    # Citations from research sources
+    citations: Mapped[list["ContentCitation"]] = relationship(
+        back_populates="content", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

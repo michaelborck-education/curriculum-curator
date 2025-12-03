@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.models.learning_outcome import UnitLearningOutcome
     from app.models.lrd import LRD
     from app.models.material import Material
+    from app.models.research_source import ResearchSource
     from app.models.task_list import TaskList
     from app.models.unit_outline import UnitOutline
     from app.models.user import User
@@ -170,6 +171,11 @@ class Unit(Base):
         back_populates="unit", cascade="all, delete-orphan"
     )
     sdg_mappings: Mapped[list["UnitSDGMapping"]] = relationship(
+        back_populates="unit", cascade="all, delete-orphan"
+    )
+
+    # Research sources
+    research_sources: Mapped[list["ResearchSource"]] = relationship(
         back_populates="unit", cascade="all, delete-orphan"
     )
 

@@ -3,6 +3,7 @@ API routes for importing and analyzing course content from PDFs
 """
 
 import uuid
+import zipfile
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -22,6 +23,7 @@ from app.models import (
 from app.services.document_analyzer_service import (
     document_analyzer_service,
 )
+from app.services.file_import_service import file_import_service
 from app.services.pdf_parser_service import ExtractionMethod, pdf_parser_service
 
 router = APIRouter()
@@ -574,22 +576,100 @@ async def get_import_suggestions(
             }
         )
 
-    return {
-        "unit": {"id": unit_id, "name": unit.name},
-        "current_state": {
-            "has_outline": has_outline,
-            "outcomes_count": outcomes_count,
-            "weekly_topics_count": weekly_topics_count,
-            "assessments_count": assessments_count,
-            "content_count": content_count,
-            "content_types": existing_types,
-        },
-        "suggestions": suggestions,
-        "next_steps": [
-            "1. Import unit outline PDF to establish structure",
-            "2. Review and refine extracted learning outcomes",
-            "3. Import or create weekly content",
-            "4. Add assessment briefs and rubrics",
-            "5. Generate student-facing materials",
-        ],
-    }
+        return {
+            "unit": {"id": unit_id, "name": unit.name},
+            "current_state": {
+                "has_outline": has_outline,
+                "outcomes_count": outcomes_count,
+                "weekly_topics_count": weekly_topics_count,
+                "assessments_count": assessments_count,
+                "content_count": content_count,
+                "content_types": existing_types,
+            },
+            "suggestions": suggestions,
+            "next_steps": [
+                "1. Import unit outline PDF to establish structure",
+                "2. Review and refine extracted learning outcomes",
+                "3. Import or create weekly content",
+                "4. Add assessment briefs and rubrics",
+                "5. Generate student-facing materials",
+            ],
+        }
+
+
+@router.post("/import/zip/{unit_id}")
+async def import_zip(
+    unit_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """
+    Import a ZIP archive containing unit materials.
+
+    Analyzes ZIP structure, detects week numbers from filenames/folders,
+    and provides suggestions for organizing content.
+    """
+    # Verify unit exists and user has access
+    unit = (
+        db.query(Unit)
+        .filter(Unit.id == unit_id, Unit.owner_id == current_user.id)
+        .first()
+    )
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found or access denied",
+        )
+
+    # Check file type
+    filename = file.filename or ""
+    if not filename.lower().endswith(".zip"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only ZIP files are supported",
+        )
+
+    # Check file size (max 100MB for ZIP)
+    contents = await file.read()
+    if len(contents) > 100 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds 100MB limit",
+        )
+
+    try:
+        # Process ZIP file
+        analysis = await file_import_service.process_zip_file(
+            contents, unit_id, db, current_user
+        )
+
+        # Check if unit outline was found
+        if analysis["unit_outline_found"]:
+            analysis["unit_outline_suggestion"] = {
+                "message": "Unit outline detected. Consider importing it first to establish course structure.",
+                "filename": analysis["unit_outline_file"]["filename"],
+                "path": analysis["unit_outline_file"]["path"],
+            }
+
+        return {
+            "status": "success",
+            "filename": filename,
+            "analysis": analysis,
+            "recommendations": [
+                f"Found {analysis['total_files']} files across {len(analysis['files_by_week'])} weeks",
+                "Review suggested structure below and adjust as needed",
+                "Use batch import to process multiple files at once",
+            ],
+        }
+
+    except zipfile.BadZipFile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ZIP file",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing ZIP file: {e!s}",
+        )

@@ -60,7 +60,25 @@ export interface Unit {
 }
 
 // Content related types
-export type ContentType = 'lecture' | 'assignment' | 'project' | 'quiz';
+export type ContentType =
+  | 'syllabus'
+  | 'schedule'
+  | 'lecture'
+  | 'module'
+  | 'worksheet'
+  | 'faq'
+  | 'quiz'
+  | 'short_answer'
+  | 'matching'
+  | 'case_study'
+  | 'interactive'
+  | 'resource' // Renamed from 'reading'
+  | 'assignment'
+  | 'project'
+  | 'assessment'
+  | 'video'
+  | 'podcast'
+  | 'tutorial';
 export type PedagogyType =
   | 'inquiry-based'
   | 'project-based'

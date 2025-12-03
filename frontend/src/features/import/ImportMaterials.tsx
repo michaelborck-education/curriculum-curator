@@ -12,6 +12,8 @@ import {
   FileImage,
   FileVideo,
   Info,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +28,11 @@ interface UploadedFile {
   error?: string;
   result?: any;
   file?: File;
+}
+
+interface WeekAssignment {
+  content_id: string;
+  week_number: number | null;
 }
 
 // Content type descriptions (currently unused but may be useful for UI)
@@ -88,10 +95,21 @@ const ImportMaterials = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState('');
   const [units, setUnits] = useState<any[]>([]);
+  const [weekAssignments, setWeekAssignments] = useState<WeekAssignment[]>([]);
+  const [bulkWeek, setBulkWeek] = useState<number | ''>('');
+  const [showUnassigned, setShowUnassigned] = useState(false);
+  const [unassignedContent, setUnassignedContent] = useState<any[]>([]);
+  const [loadingUnassigned, setLoadingUnassigned] = useState(false);
 
   useEffect(() => {
     fetchUnits();
   }, []);
+
+  useEffect(() => {
+    if (selectedUnit) {
+      fetchUnassignedContent();
+    }
+  }, [selectedUnit]);
 
   const fetchUnits = async () => {
     try {
@@ -100,6 +118,141 @@ const ImportMaterials = () => {
     } catch (error) {
       console.error('Error fetching units:', error);
     }
+  };
+
+  const fetchUnassignedContent = async () => {
+    if (!selectedUnit) return;
+
+    setLoadingUnassigned(true);
+    try {
+      const response = await api.get(
+        `/units/${selectedUnit}/content/unassigned`
+      );
+      setUnassignedContent(response.data.contents || []);
+    } catch (error) {
+      console.error('Error fetching unassigned content:', error);
+      setUnassignedContent([]);
+    } finally {
+      setLoadingUnassigned(false);
+    }
+  };
+
+  const updateWeekAssignment = async (
+    contentId: string,
+    weekNumber: number | null
+  ) => {
+    try {
+      await api.patch(
+        `/units/${selectedUnit}/content/${contentId}/week`,
+        null,
+        {
+          params: { week_number: weekNumber },
+        }
+      );
+
+      // Update local state
+      setFiles(prev =>
+        prev.map(f =>
+          f.result?.content_id === contentId
+            ? {
+                ...f,
+                result: {
+                  ...f.result,
+                  week_number: weekNumber,
+                },
+              }
+            : f
+        )
+      );
+
+      // Also update unassigned list if needed
+      if (weekNumber === null) {
+        // If setting to null, add to unassigned list
+        const file = files.find(f => f.result?.content_id === contentId);
+        if (file) {
+          setUnassignedContent(prev => [
+            ...prev,
+            {
+              id: contentId,
+              title: file.name,
+              content_type: file.result?.content_type || 'general',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          ]);
+        }
+      } else {
+        // If assigning a week, remove from unassigned list
+        setUnassignedContent(prev =>
+          prev.filter(item => item.id !== contentId)
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating week assignment:', error);
+      return false;
+    }
+  };
+
+  const bulkUpdateWeeks = async () => {
+    if (bulkWeek === '' || bulkWeek === null || bulkWeek === undefined) return;
+
+    const updates = weekAssignments.map(assignment => ({
+      content_id: assignment.content_id,
+      week_number: bulkWeek,
+    }));
+
+    try {
+      const response = await api.post(
+        `/units/${selectedUnit}/content/bulk/week`,
+        updates
+      );
+
+      if (response.data.success) {
+        // Update local state for all selected files
+        setFiles(prev =>
+          prev.map(f => {
+            const assignment = weekAssignments.find(
+              a => a.content_id === f.result?.content_id
+            );
+            if (assignment) {
+              return {
+                ...f,
+                result: {
+                  ...f.result,
+                  week_number: bulkWeek,
+                },
+              };
+            }
+            return f;
+          })
+        );
+
+        // Clear selections
+        setWeekAssignments([]);
+        setBulkWeek('');
+
+        // Refresh unassigned list
+        fetchUnassignedContent();
+      }
+    } catch (error) {
+      console.error('Error bulk updating weeks:', error);
+    }
+  };
+
+  const toggleWeekAssignment = (
+    contentId: string,
+    weekNumber: number | null
+  ) => {
+    setWeekAssignments(prev => {
+      const existing = prev.find(a => a.content_id === contentId);
+      if (existing) {
+        return prev.filter(a => a.content_id !== contentId);
+      } else {
+        return [...prev, { content_id: contentId, week_number: weekNumber }];
+      }
+    });
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -122,16 +275,17 @@ const ImportMaterials = () => {
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-        ['.pptx'],
-      'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         ['.docx'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+        ['.pptx'],
       'text/markdown': ['.md'],
       'text/plain': ['.txt'],
-      'text/html': ['.html', '.htm'],
+      'text/html': ['.html'],
+      'application/zip': ['.zip'],
+      'application/x-zip-compressed': ['.zip'],
     },
+    multiple: true,
   });
 
   const getFileIcon = (type: string) => {
@@ -152,6 +306,226 @@ const ImportMaterials = () => {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const handleZipUpload = async (file: UploadedFile) => {
+    if (!file.file) return;
+
+    const formData = new FormData();
+    formData.append('file', file.file);
+
+    try {
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === file.id ? { ...f, status: 'uploading', progress: 0 } : f
+        )
+      );
+
+      const response = await api.post(
+        `/content/import/zip/${selectedUnit}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: progressEvent => {
+            const progress = progressEvent.total
+              ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              : 0;
+            setFiles(prev =>
+              prev.map(f => (f.id === file.id ? { ...f, progress } : f))
+            );
+          },
+        }
+      );
+
+      // Mark as completed
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === file.id
+            ? {
+                ...f,
+                status: 'completed',
+                progress: 100,
+                result: {
+                  ...response.data,
+                  isZipAnalysis: true,
+                },
+              }
+            : f
+        )
+      );
+
+      // Show ZIP analysis results
+      window.alert(
+        `ZIP analysis complete!\n\nFound ${response.data.analysis.total_files} files across ${Object.keys(response.data.analysis.files_by_week).length} weeks.\n\n${response.data.analysis.unit_outline_found ? '✓ Unit outline detected' : 'No unit outline found'}\n\nCheck the suggestions below for organizing your content.`
+      );
+    } catch (error: any) {
+      console.error('ZIP upload error:', error);
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === file.id
+            ? {
+                ...f,
+                status: 'error',
+                error:
+                  'ZIP upload failed: ' +
+                  (error.response?.data?.detail || error.message),
+              }
+            : f
+        )
+      );
+    }
+  };
+
+  const handleSingleUpload = async (fileInfo: UploadedFile) => {
+    const actualFile = (fileInfo as any).file;
+    if (!actualFile) return;
+
+    const formData = new FormData();
+    formData.append('file', actualFile);
+
+    try {
+      const response = await api.post(
+        `/content/upload?unitId=${selectedUnit}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: progressEvent => {
+            const progress = progressEvent.total
+              ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              : 0;
+            setFiles(prev =>
+              prev.map(f => (f.id === fileInfo.id ? { ...f, progress } : f))
+            );
+          },
+        }
+      );
+
+      // Mark as processing
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === fileInfo.id ? { ...f, status: 'processing' } : f
+        )
+      );
+
+      // Mark as completed with results
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === fileInfo.id
+            ? {
+                ...f,
+                status: 'completed',
+                progress: 100,
+                result: response.data,
+              }
+            : f
+        )
+      );
+
+      // Add to unassigned list since week number isn't specified during upload
+      if (response.data.content_id) {
+        setUnassignedContent(prev => [
+          ...prev,
+          {
+            id: response.data.content_id,
+            title: fileInfo.name,
+            content_type: response.data.content_type || 'general',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === fileInfo.id
+            ? {
+                ...f,
+                status: 'error',
+                error:
+                  'Upload failed: ' +
+                  (error.response?.data?.detail || error.message),
+              }
+            : f
+        )
+      );
+    }
+  };
+
+  const handleBatchUpload = async (filesToUpload: UploadedFile[]) => {
+    const formData = new FormData();
+    const fileMap = new Map();
+
+    for (const fileInfo of filesToUpload) {
+      const actualFile = (fileInfo as any).file;
+      if (actualFile) {
+        formData.append('files', actualFile);
+        fileMap.set(actualFile.name, fileInfo.id);
+      }
+    }
+
+    try {
+      const response = await api.post(
+        `/content/upload/batch?unitId=${selectedUnit}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+
+      // Update file statuses based on response
+      response.data.results.forEach((result: any) => {
+        const fileId = fileMap.get(result.filename);
+        if (fileId) {
+          setFiles(prev =>
+            prev.map(f =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    status: result.success ? 'completed' : 'error',
+                    progress: 100,
+                    error: result.error,
+                    result: result,
+                  }
+                : f
+            )
+          );
+
+          // Add to unassigned list since batch upload doesn't specify week number
+          if (result.success && result.content_id) {
+            const fileInfo = filesToUpload.find(f => f.id === fileId);
+            if (fileInfo) {
+              setUnassignedContent(prev => [
+                ...prev,
+                {
+                  id: result.content_id,
+                  title: fileInfo.name,
+                  content_type: result.content_type || 'general',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+              ]);
+            }
+          }
+        }
+      });
+    } catch (error: unknown) {
+      // Mark all as error
+      console.error('Batch upload error:', error);
+      filesToUpload.forEach(fileInfo => {
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === fileInfo.id
+              ? {
+                  ...f,
+                  status: 'error',
+                  error: 'Batch upload failed',
+                }
+              : f
+          )
+        );
+      });
+    }
+  };
+
   const uploadFiles = async () => {
     if (!selectedUnit) {
       window.alert('Please select a course first');
@@ -161,138 +535,53 @@ const ImportMaterials = () => {
     setUploading(true);
     const pendingFiles = files.filter(f => f.status === 'pending');
 
-    // Create FormData for batch upload
-    const formData = new FormData();
-    const fileMap = new Map();
+    // Check for ZIP files
+    const zipFiles = pendingFiles.filter(
+      f =>
+        f.type === 'application/zip' ||
+        f.type === 'application/x-zip-compressed' ||
+        f.name?.endsWith('.zip')
+    );
 
-    for (const fileInfo of pendingFiles) {
-      // Get the actual File object from the dropzone
-      const actualFile = (fileInfo as any).file;
-      if (actualFile) {
-        formData.append('files', actualFile);
-        fileMap.set(actualFile.name, fileInfo.id);
+    const regularFiles = pendingFiles.filter(
+      f =>
+        !(
+          f.type === 'application/zip' ||
+          f.type === 'application/x-zip-compressed' ||
+          f.name?.endsWith('.zip')
+        )
+    );
+
+    // Handle ZIP files separately (one at a time)
+    if (zipFiles.length > 0) {
+      if (zipFiles.length > 1) {
+        window.alert('Please upload only one ZIP file at a time');
+        setUploading(false);
+        return;
       }
-    }
 
-    if (pendingFiles.length === 1) {
-      // Single file upload
-      const fileInfo = pendingFiles[0];
-      const actualFile = (fileInfo as any).file;
+      const zipFile = zipFiles[0];
+      await handleZipUpload(zipFile);
 
-      if (actualFile) {
-        setFiles(prev =>
-          prev.map(f =>
-            f.id === fileInfo.id
-              ? { ...f, status: 'uploading', progress: 50 }
-              : f
-          )
-        );
-
-        const formData = new FormData();
-        formData.append('file', actualFile);
-
-        try {
-          const response = await api.post(
-            `/content/upload?unitId=${selectedUnit}`,
-            formData,
-            {
-              headers: { 'Content-Type': 'multipart/form-data' },
-              onUploadProgress: progressEvent => {
-                const progress = progressEvent.total
-                  ? Math.round(
-                      (progressEvent.loaded * 100) / progressEvent.total
-                    )
-                  : 0;
-                setFiles(prev =>
-                  prev.map(f => (f.id === fileInfo.id ? { ...f, progress } : f))
-                );
-              },
-            }
-          );
-
-          // Mark as processing
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === fileInfo.id ? { ...f, status: 'processing' } : f
-            )
-          );
-
-          // Mark as completed with results
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === fileInfo.id
-                ? {
-                    ...f,
-                    status: 'completed',
-                    progress: 100,
-                    result: response.data,
-                  }
-                : f
-            )
-          );
-        } catch (error: any) {
-          console.error('Upload error:', error);
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === fileInfo.id
-                ? {
-                    ...f,
-                    status: 'error',
-                    error:
-                      'Upload failed: ' +
-                      (error.response?.data?.detail || error.message),
-                  }
-                : f
-            )
-          );
+      // If there are also regular files, upload them too
+      if (regularFiles.length > 0) {
+        if (regularFiles.length === 1) {
+          await handleSingleUpload(regularFiles[0]);
+        } else {
+          await handleBatchUpload(regularFiles);
         }
       }
-    } else if (pendingFiles.length > 1) {
-      // Batch upload
-      try {
-        const response = await api.post(
-          `/content/upload/batch?unitId=${selectedUnit}`,
-          formData,
-          {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          }
-        );
 
-        // Update file statuses based on response
-        response.data.results.forEach((result: any) => {
-          const fileId = fileMap.get(result.filename);
-          if (fileId) {
-            setFiles(prev =>
-              prev.map(f =>
-                f.id === fileId
-                  ? {
-                      ...f,
-                      status: result.success ? 'completed' : 'error',
-                      progress: 100,
-                      error: result.error,
-                      result: result,
-                    }
-                  : f
-              )
-            );
-          }
-        });
-      } catch (error: unknown) {
-        // Mark all as error
-        console.error('Batch upload error:', error);
-        pendingFiles.forEach(fileInfo => {
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === fileInfo.id
-                ? {
-                    ...f,
-                    status: 'error',
-                    error: 'Batch upload failed',
-                  }
-                : f
-            )
-          );
-        });
+      setUploading(false);
+      return;
+    }
+
+    // Handle regular files
+    if (regularFiles.length > 0) {
+      if (regularFiles.length === 1) {
+        await handleSingleUpload(regularFiles[0]);
+      } else {
+        await handleBatchUpload(regularFiles);
       }
     }
 
@@ -497,7 +786,7 @@ const ImportMaterials = () => {
                   <div className='space-y-3'>
                     {/* Content Type & Stats */}
                     <div className='space-y-3'>
-                      <div className='grid grid-cols-3 gap-4 text-sm'>
+                      <div className='grid grid-cols-4 gap-4 text-sm'>
                         <div>
                           <span className='text-gray-600'>Detected Type:</span>
                           <div className='flex items-center mt-1'>
@@ -564,6 +853,67 @@ const ImportMaterials = () => {
                                 % confidence
                               </span>
                             )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className='text-gray-600'>Week:</span>
+                          <div className='flex items-center mt-1'>
+                            <select
+                              className='text-sm font-medium border border-gray-300 rounded px-2 py-1'
+                              value={file.result.week_number || ''}
+                              onChange={async e => {
+                                const newWeek =
+                                  e.target.value === ''
+                                    ? null
+                                    : parseInt(e.target.value);
+                                const success = await updateWeekAssignment(
+                                  file.result.content_id,
+                                  newWeek
+                                );
+                                if (success) {
+                                  // Update local state
+                                  setFiles(prev =>
+                                    prev.map(f =>
+                                      f.id === file.id
+                                        ? {
+                                            ...f,
+                                            result: {
+                                              ...f.result,
+                                              week_number: newWeek,
+                                            },
+                                          }
+                                        : f
+                                    )
+                                  );
+                                }
+                              }}
+                            >
+                              <option value=''>Unassigned</option>
+                              {Array.from({ length: 52 }, (_, i) => i + 1).map(
+                                week => (
+                                  <option key={week} value={week}>
+                                    Week {week}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                            <button
+                              onClick={() =>
+                                toggleWeekAssignment(
+                                  file.result.content_id,
+                                  file.result.week_number
+                                )
+                              }
+                              className='ml-2 text-blue-600 hover:text-blue-800'
+                            >
+                              {weekAssignments.some(
+                                a => a.content_id === file.result.content_id
+                              ) ? (
+                                <CheckSquare className='h-4 w-4' />
+                              ) : (
+                                <Square className='h-4 w-4' />
+                              )}
+                            </button>
                           </div>
                         </div>
                         <div>
@@ -722,6 +1072,143 @@ const ImportMaterials = () => {
                 )}
               </div>
             ))}
+        </div>
+      )}
+
+      {/* Bulk Week Assignment */}
+      {weekAssignments.length > 0 && (
+        <div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6'>
+          <h3 className='text-lg font-semibold mb-2 text-yellow-900'>
+            Bulk Week Assignment ({weekAssignments.length} selected)
+          </h3>
+          <div className='flex items-center space-x-4'>
+            <div className='flex-1'>
+              <label className='block text-sm font-medium text-yellow-800 mb-1'>
+                Assign all selected to week:
+              </label>
+              <div className='flex items-center space-x-2'>
+                <select
+                  className='text-sm font-medium border border-gray-300 rounded px-3 py-2'
+                  value={bulkWeek}
+                  onChange={e =>
+                    setBulkWeek(
+                      e.target.value === '' ? '' : parseInt(e.target.value)
+                    )
+                  }
+                >
+                  <option value=''>Select week...</option>
+                  {Array.from({ length: 52 }, (_, i) => i + 1).map(week => (
+                    <option key={week} value={week}>
+                      Week {week}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={bulkUpdateWeeks}
+                  disabled={!bulkWeek}
+                  className='px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => setWeekAssignments([])}
+                  className='px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300'
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unassigned Content Management */}
+      {selectedUnit && (
+        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
+          <div className='flex justify-between items-center mb-4'>
+            <h3 className='text-lg font-semibold'>Unassigned Content</h3>
+            <button
+              onClick={() => setShowUnassigned(!showUnassigned)}
+              className='px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200'
+            >
+              {showUnassigned ? 'Hide' : 'Show'} ({unassignedContent.length})
+            </button>
+          </div>
+
+          {showUnassigned && (
+            <>
+              {loadingUnassigned ? (
+                <div className='text-center py-4'>
+                  <div className='inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent'></div>
+                  <p className='mt-2 text-gray-600'>
+                    Loading unassigned content...
+                  </p>
+                </div>
+              ) : unassignedContent.length === 0 ? (
+                <div className='text-center py-4 text-gray-500'>
+                  No unassigned content found.
+                </div>
+              ) : (
+                <div className='space-y-3'>
+                  <div className='text-sm text-gray-600 mb-2'>
+                    {unassignedContent.length} item(s) without week assignment
+                  </div>
+                  <div className='max-h-60 overflow-y-auto'>
+                    {unassignedContent.map(item => (
+                      <div
+                        key={item.id}
+                        className='flex items-center justify-between p-3 border border-gray-200 rounded-lg'
+                      >
+                        <div>
+                          <div className='font-medium'>{item.title}</div>
+                          <div className='text-sm text-gray-500 capitalize'>
+                            {item.content_type}
+                          </div>
+                        </div>
+                        <div className='flex items-center space-x-2'>
+                          <select
+                            className='text-sm border border-gray-300 rounded px-2 py-1'
+                            defaultValue=''
+                            onChange={async e => {
+                              const weekNumber =
+                                e.target.value === ''
+                                  ? null
+                                  : parseInt(e.target.value);
+                              const success = await updateWeekAssignment(
+                                item.id,
+                                weekNumber
+                              );
+                              if (success) {
+                                // Remove from unassigned list
+                                setUnassignedContent(prev =>
+                                  prev.filter(i => i.id !== item.id)
+                                );
+                              }
+                            }}
+                          >
+                            <option value=''>Assign to week...</option>
+                            {Array.from({ length: 52 }, (_, i) => i + 1).map(
+                              week => (
+                                <option key={week} value={week}>
+                                  Week {week}
+                                </option>
+                              )
+                            )}
+                          </select>
+                          <button
+                            onClick={() => navigate(`/content/${item.id}/edit`)}
+                            className='px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200'
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
